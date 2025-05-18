@@ -1,0 +1,25 @@
+name: 'GitHub Error Checking'
+description: 'Analyzes pull requests for proper error handling in added code'
+author: 'cameronterry'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  error-types:
+    description: 'Types of error handling to check for (comma-separated)'
+    required: false
+    default: 'exceptions,null-checks,undefined-checks'
+
+outputs:
+  suggestions:
+    description: 'Error handling suggestions'
+
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'shield'
+  color: 'green' 
