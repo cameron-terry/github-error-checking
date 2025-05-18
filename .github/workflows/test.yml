@@ -52,5 +52,12 @@ jobs:
         run: |
           echo "Analysis complete. See logs above for details."
           echo "Added code sections: ${{ steps.action-test.outputs.added-code }}"
-          echo "Error score: ${{ steps.action-test.outputs.error-score }}" 
-          echo "Analysis results: ${{ steps.action-test.outputs.analysis-results }}"
+          echo "Error score: ${{ steps.action-test.outputs.error-score }}"
+          echo 'Analysis results saved to file'
+          echo '${{ steps.action-test.outputs.analysis-results }}' > analysis-results.json
+          
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-results
+          path: analysis-results.json
