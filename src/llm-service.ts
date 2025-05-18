@@ -5,6 +5,7 @@ import { OpenAI } from 'openai';
 import * as core from '@actions/core';
 import { AddedCodeSection } from './diff-utils';
 import { logger } from './logger';
+import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
 
 /**
  * Interface for LLM analysis response
@@ -64,11 +65,31 @@ export class LLMService {
    * @returns Analysis results by file
    */
   async analyzeByFile(sections: AddedCodeSection[]): Promise<LLMAnalysisResult[]> {
+    let filteredSections = sections;
+    
+    // Apply file filtering if enabled
+    if (isFileFilteringEnabled()) {
+      // Filter out sections from files that should be ignored
+      filteredSections = sections.filter(section => !shouldIgnoreFile(section.file));
+      
+      // Log how many sections were ignored
+      if (filteredSections.length < sections.length) {
+        logger.info(`Skipping analysis for ${sections.length - filteredSections.length} sections from ignored file types`);
+      }
+    } else {
+      logger.info('File type filtering is disabled. Analyzing all files.');
+    }
+    
+    if (filteredSections.length === 0) {
+      logger.info('No valid code sections to analyze after filtering');
+      return [];
+    }
+    
     // Group sections by file
-    const fileGroups = this.groupSectionsByFile(sections);
+    const fileGroups = this.groupSectionsByFile(filteredSections);
     const results: LLMAnalysisResult[] = [];
     
-    logger.debug(`Grouped ${sections.length} sections into ${fileGroups.length} files for analysis`);
+    logger.debug(`Grouped ${filteredSections.length} sections into ${fileGroups.length} files for analysis`);
     
     // Analyze each file
     for (const fileGroup of fileGroups) {

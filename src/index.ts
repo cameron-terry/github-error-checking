@@ -5,6 +5,7 @@ import * as path from 'path';
 import { getPullRequestDiff, parseAddedLines } from './diff-utils';
 import { LLMService, LLMAnalysisResult } from './llm-service';
 import { logger, LogLevel } from './logger';
+import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
 
 async function run(): Promise<void> {
   try {
@@ -119,6 +120,21 @@ index 123..456 100644
     
     // Output the results
     logger.info(`Found ${addedCode.length} sections of added code`);
+    
+    // Check if file filtering is enabled
+    if (isFileFilteringEnabled()) {
+      // Count the number of sections that would be ignored based on file type
+      const ignoredSections = addedCode.filter(section => shouldIgnoreFile(section.file));
+      if (ignoredSections.length > 0) {
+        logger.info(`${ignoredSections.length} sections are from file types that will be ignored during analysis`);
+        logger.debug('Ignored files:');
+        new Set(ignoredSections.map(section => section.file)).forEach(file => 
+          logger.debug(`  - ${file}`)
+        );
+      }
+    } else {
+      logger.info('File type filtering is disabled. All files will be analyzed.');
+    }
     
     // Set output if running in GitHub Actions
     if (!diffPath) {

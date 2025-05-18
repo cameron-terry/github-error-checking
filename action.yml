@@ -22,6 +22,14 @@ inputs:
     description: 'Logging level (debug, info, warning, error, none)'
     required: false
     default: 'info'
+  enable-file-filtering:
+    description: 'Enable filtering out common generated/config files from analysis'
+    required: false
+    default: 'true'
+  ignore-patterns:
+    description: 'Additional file patterns to ignore (comma-separated)'
+    required: false
+    default: ''
 
 outputs:
   added-code:
