@@ -8,6 +8,51 @@ import { logger } from './logger';
 import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
 
 /**
+ * Constants for LLM prompts
+ */
+const LLM_PROMPTS = {
+  ERROR_ANALYSIS_INSTRUCTION: "Identify any missing or improper error handling in the ADDED CODE section only.",
+  ERROR_HANDLING_PATTERNS: `Consider these error handling patterns:
+1. Exception handling (try/catch blocks)
+2. Null/undefined checks
+3. Error propagation
+4. Input validation
+5. Edge cases
+6. Resource cleanup`,
+  JSON_RESPONSE_FORMAT: `Analyze only the ADDED CODE section for missing or improper error handling. Do NOT evaluate unchanged code or suggest general improvements.
+
+Focus only on the following error handling concerns:
+1. Missing exception handling (e.g. try/catch)
+2. Missing null/undefined checks
+3. Improper error propagation (e.g. swallowing errors)
+4. Lack of input validation
+5. Missing edge case checks
+6. Missing cleanup of open resources (e.g. file handles, DB connections)
+
+Only report issues that are likely to cause real bugs, runtime errors, or maintainability problems. Do not report stylistic issues or theoretical concerns.
+
+Respond with a JSON object containing:
+1. An "issues" array with objects containing:
+   - description: What the issue is and why it matters
+   - suggestion: A specific and actionable code fix
+   - severity: "low", "medium", or "high" based on potential impact
+   - lineNumber: Approximate line number in the ADDED CODE section (optional)
+2. A "score" from 0 to 10 rating the overall quality of error handling (10 = excellent, 0 = critically flawed)
+
+Example:
+{
+  "issues": [
+    {
+      "description": "Missing null check before accessing 'user.id'",
+      "suggestion": "Add 'if (!user) return;' before accessing 'user.id'",
+      "severity": "high"
+    }
+  ],
+  "score": 4
+}`
+};
+
+/**
  * Interface for LLM analysis response
  */
 export interface LLMAnalysisResult {
@@ -318,34 +363,10 @@ ${section.contextAfter}
 \`\`\`
 `).join('\n')}
 
-Identify any missing or improper error handling in the ADDED CODE sections only.
-Consider these error handling patterns:
-1. Exception handling (try/catch blocks)
-2. Null/undefined checks
-3. Error propagation
-4. Input validation
-5. Edge cases
-6. Resource cleanup
+${LLM_PROMPTS.ERROR_ANALYSIS_INSTRUCTION}
+${LLM_PROMPTS.ERROR_HANDLING_PATTERNS}
 
-Respond with a JSON object containing:
-1. An "issues" array with objects containing:
-   - description: Description of the issue
-   - suggestion: Specific code suggestion to fix the issue
-   - severity: "low", "medium", or "high" based on potential impact
-   - lineNumber: Approximate line number in the section (optional)
-2. A "score" from 0-10 rating the overall quality of error handling (0=poor, 10=excellent)
-
-Example response format:
-{
-  "issues": [
-    {
-      "description": "Missing null check before accessing property",
-      "suggestion": "Add 'if (user === null || user === undefined) { return; }' before accessing user properties",
-      "severity": "high"
-    }
-  ],
-  "score": 4
-}
+${LLM_PROMPTS.JSON_RESPONSE_FORMAT}
 `;
   }
   
@@ -373,34 +394,10 @@ CONTEXT AFTER:
 ${contextAfter}
 \`\`\`
 
-Identify any missing or improper error handling in the ADDED CODE section only.
-Consider these error handling patterns:
-1. Exception handling (try/catch blocks)
-2. Null/undefined checks
-3. Error propagation
-4. Input validation
-5. Edge cases
-6. Resource cleanup
+${LLM_PROMPTS.ERROR_ANALYSIS_INSTRUCTION}
+${LLM_PROMPTS.ERROR_HANDLING_PATTERNS}
 
-Respond with a JSON object containing:
-1. An "issues" array with objects containing:
-   - description: Description of the issue
-   - suggestion: Specific code suggestion to fix the issue
-   - severity: "low", "medium", or "high" based on potential impact
-   - lineNumber: Approximate line number in the added code section (optional)
-2. A "score" from 0-10 rating the overall quality of error handling (0=poor, 10=excellent)
-
-Example response format:
-{
-  "issues": [
-    {
-      "description": "Missing null check before accessing property",
-      "suggestion": "Add 'if (user === null || user === undefined) { return; }' before accessing user properties",
-      "severity": "high"
-    }
-  ],
-  "score": 4
-}
+${LLM_PROMPTS.JSON_RESPONSE_FORMAT}
 `;
   }
 } 
