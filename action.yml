@@ -17,8 +17,10 @@ outputs:
     description: 'Error handling suggestions'
 
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: 'composite'
+  steps:
+    - run: ${{ github.action_path }}/action.sh
+      shell: bash
 
 branding:
   icon: 'shield'
