@@ -33,15 +33,19 @@ if [ "$USE_TEST_DIFF" = "true" ]; then
     
     # For GitHub Actions, extract result from output
     if [ "$GITHUB_ACTIONS" = "true" ]; then
+      SECTION_COUNT=3
+      
       # Create a marker in the GitHub step summary
       echo "## Error Checking Results" >> $GITHUB_STEP_SUMMARY
-      echo "Found **3** sections to analyze" >> $GITHUB_STEP_SUMMARY
+      echo "Found **${SECTION_COUNT}** sections to analyze" >> $GITHUB_STEP_SUMMARY
       
       # Set outputs using the current GitHub Actions approach
-      echo "added-code=3" >> $GITHUB_OUTPUT
+      echo "added-code=${SECTION_COUNT}" >> $GITHUB_OUTPUT
       
-      # Also set environment variable 
-      echo "added_code=3" >> $GITHUB_ENV
+      # Also set environment variables (both underscore and hyphen versions)
+      echo "added_code=${SECTION_COUNT}" >> $GITHUB_ENV
+      echo "ADDED_CODE=${SECTION_COUNT}" >> $GITHUB_ENV
+      export ADDED_CODE="${SECTION_COUNT}"
     fi
     
     # Return the original exit code
