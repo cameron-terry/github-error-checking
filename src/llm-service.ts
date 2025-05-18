@@ -22,7 +22,7 @@ const LLM_PROMPTS = {
   JSON_RESPONSE_FORMAT: `Analyze only the ADDED CODE section for missing or improper error handling. Do NOT evaluate unchanged code or suggest general improvements.
 
 Focus only on the following error handling concerns:
-1. Missing exception handling (e.g. try/catch)
+1. Missing exception handling (e.g. try/catch or guard clauses) 
 2. Missing null/undefined checks
 3. Improper error propagation (e.g. swallowing errors)
 4. Lack of input validation
