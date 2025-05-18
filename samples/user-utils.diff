@@ -1,0 +1,28 @@
+diff --git a/src/utils/userUtils.js b/src/utils/userUtils.js
+index 000001..000002 100644
+--- a/src/utils/userUtils.js
++++ b/src/utils/userUtils.js
+@@ -0,0 +1,23 @@
++const fs = require('fs');
++
++/**
++ * Extracts the user's full name
++ * @param {Object} user - A user object
++ * @returns {string} Full name
++ */
++function getFullName(user) {
++  return `${user.firstName} ${user.lastName}`;
++}
++
++/**
++ * Saves user data to a file
++ * @param {string} filePath
++ * @param {Object} userData
++ */
++function saveUserData(filePath, userData) {
++  const file = fs.openSync(filePath, 'w');
++  fs.writeSync(file, JSON.stringify(userData));
++  // Intentionally forgetting to close the file
++}
++
++module.exports = { getFullName, saveUserData };

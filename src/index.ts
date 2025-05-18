@@ -150,7 +150,7 @@ async function run(): Promise<void> {
     
     // Initialize LLM service for code analysis
     const apiKey = process.env.OPENAI_API_KEY || core.getInput('openai-api-key', { required: !diffPath });
-    const modelName = core.getInput('llm-model') || 'gpt-4';
+    const modelName = process.env.LLM_MODEL || core.getInput('llm-model') || 'gpt-4';
     
     let llmService: LLMService | null = null;
     
@@ -158,7 +158,6 @@ async function run(): Promise<void> {
       if (apiKey) {
         try {
           llmService = new LLMService(apiKey, modelName);
-          logger.info(`Using LLM model: ${modelName}`);
         } catch (llmErr) {
           logger.warning(`Failed to initialize LLM service: ${llmErr instanceof Error ? llmErr.message : 'Unknown error'}`);
         }

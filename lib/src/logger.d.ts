@@ -14,6 +14,8 @@ export declare enum LogLevel {
 export declare class Logger {
     private static instance;
     private logLevel;
+    private winstonLogger;
+    private inGitHubActions;
     private constructor();
     /**
      * Get the logger instance (singleton)

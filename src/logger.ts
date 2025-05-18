@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import * as winston from 'winston';
 
 /**
  * Log levels enum
@@ -16,12 +17,26 @@ export enum LogLevel {
  */
 function parseLogLevel(level: string): LogLevel {
   switch (level.toLowerCase()) {
-    case 'debug': return LogLevel.DEBUG;
-    case 'info': return LogLevel.INFO;
-    case 'warning': return LogLevel.WARNING;
-    case 'error': return LogLevel.ERROR;
-    case 'none': return LogLevel.NONE;
-    default: return LogLevel.INFO;
+  case 'debug': return LogLevel.DEBUG;
+  case 'info': return LogLevel.INFO;
+  case 'warning': return LogLevel.WARNING;
+  case 'error': return LogLevel.ERROR;
+  case 'none': return LogLevel.NONE;
+  default: return LogLevel.INFO;
+  }
+}
+
+/**
+ * Convert LogLevel enum to winston log level
+ */
+function toWinstonLogLevel(level: LogLevel): string {
+  switch (level) {
+  case LogLevel.DEBUG: return 'debug';
+  case LogLevel.INFO: return 'info';
+  case LogLevel.WARNING: return 'warn';
+  case LogLevel.ERROR: return 'error';
+  case LogLevel.NONE: return 'error';
+  default: return 'info';
   }
 }
 
@@ -38,6 +53,8 @@ function isGitHubActions(): boolean {
 export class Logger {
   private static instance: Logger;
   private logLevel: LogLevel = LogLevel.INFO;
+  private winstonLogger: winston.Logger;
+  private inGitHubActions: boolean;
 
   private constructor() {
     // Set default log level from environment variable if present
@@ -45,6 +62,27 @@ export class Logger {
     if (envLogLevel) {
       this.logLevel = parseLogLevel(envLogLevel);
     }
+
+    // Check if running in GitHub Actions
+    this.inGitHubActions = isGitHubActions();
+
+    // Create winston logger with custom format
+    const customFormat = winston.format.printf(({ level, message }) => {
+      const upperLevel = level.toUpperCase();
+      return `${upperLevel.padEnd(7)}: ${message}`;
+    });
+
+    this.winstonLogger = winston.createLogger({
+      level: toWinstonLogLevel(this.logLevel),
+      format: winston.format.combine(
+        winston.format.colorize({ all: true }),
+        customFormat
+      ),
+      transports: [
+        new winston.transports.Console()
+      ],
+      silent: this.logLevel === LogLevel.NONE || this.inGitHubActions
+    });
   }
 
   /**
@@ -66,6 +104,9 @@ export class Logger {
     } else {
       this.logLevel = level;
     }
+    
+    // Update winston logger level
+    this.winstonLogger.level = toWinstonLogLevel(this.logLevel);
   }
 
   /**
@@ -80,11 +121,10 @@ export class Logger {
    */
   public debug(message: string): void {
     if (this.logLevel <= LogLevel.DEBUG) {
-      core.debug(message);
-      
-      // Only use console.log when not in GitHub Actions
-      if (!isGitHubActions()) {
-        console.log(`[DEBUG] ${message}`);
+      if (this.inGitHubActions) {
+        core.debug(message);
+      } else {
+        this.winstonLogger.debug(message);
       }
     }
   }
@@ -94,11 +134,10 @@ export class Logger {
    */
   public info(message: string): void {
     if (this.logLevel <= LogLevel.INFO) {
-      core.info(message);
-      
-      // Only use console.log when not in GitHub Actions
-      if (!isGitHubActions()) {
-        console.log(`[INFO] ${message}`);
+      if (this.inGitHubActions) {
+        core.info(message);
+      } else {
+        this.winstonLogger.info(message);
       }
     }
   }
@@ -108,11 +147,10 @@ export class Logger {
    */
   public warning(message: string): void {
     if (this.logLevel <= LogLevel.WARNING) {
-      core.warning(message);
-      
-      // Only use console.warn when not in GitHub Actions
-      if (!isGitHubActions()) {
-        console.warn(`[WARNING] ${message}`);
+      if (this.inGitHubActions) {
+        core.warning(message);
+      } else {
+        this.winstonLogger.warn(message);
       }
     }
   }
@@ -122,11 +160,10 @@ export class Logger {
    */
   public error(message: string): void {
     if (this.logLevel <= LogLevel.ERROR) {
-      core.error(message);
-      
-      // Only use console.error when not in GitHub Actions
-      if (!isGitHubActions()) {
-        console.error(`[ERROR] ${message}`);
+      if (this.inGitHubActions) {
+        core.error(message);
+      } else {
+        this.winstonLogger.error(message);
       }
     }
   }
