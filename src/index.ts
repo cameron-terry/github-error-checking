@@ -79,8 +79,17 @@ async function run(): Promise<void> {
     
     core.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
     
-    // Get PR diff
-    const diff = await getPullRequestDiff(octokit, repo, pullNumber);
+    let diff;
+    
+    // Check if we're using a mock event with embedded diff (for testing)
+    if (context.payload.pull_request && 'diff' in context.payload.pull_request) {
+      console.log('Using embedded diff from mock event');
+      diff = context.payload.pull_request.diff as string;
+    } else {
+      // Get PR diff normally through the GitHub API
+      console.log('Fetching diff from GitHub API');
+      diff = await getPullRequestDiff(octokit, repo, pullNumber);
+    }
     
     // Parse diff to get added lines with file context
     const addedCode = parseAddedLines(diff);
