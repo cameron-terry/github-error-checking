@@ -67,17 +67,61 @@ export async function getPullRequestDiff(
   repo: RepoInfo, 
   pullNumber: number
 ): Promise<string> {
-  const response = await octokit.pulls.get({
-    owner: repo.owner,
-    repo: repo.repo,
-    pull_number: pullNumber,
-    mediaType: {
-      format: 'diff'
+  try {
+    // First, try with v5 API format (using pulls.get)
+    if (octokit.pulls && typeof octokit.pulls.get === 'function') {
+      const response = await octokit.pulls.get({
+        owner: repo.owner,
+        repo: repo.repo,
+        pull_number: pullNumber,
+        mediaType: {
+          format: 'diff'
+        }
+      });
+      
+      // When requesting a diff, the response data is a string
+      return response.data as unknown as string;
+    } 
+    // Try with rest.pulls for newer API version
+    else if (octokit.rest && octokit.rest.pulls && typeof octokit.rest.pulls.get === 'function') {
+      const response = await octokit.rest.pulls.get({
+        owner: repo.owner,
+        repo: repo.repo,
+        pull_number: pullNumber,
+        mediaType: {
+          format: 'diff'
+        }
+      });
+      
+      return response.data as unknown as string;
+    } 
+    // Fallback to fetching raw diff URL
+    else {
+      // Get PR info first
+      const prResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+        owner: repo.owner,
+        repo: repo.repo,
+        pull_number: pullNumber
+      });
+      
+      // Then fetch the diff URL
+      const diffUrl = prResponse.data.diff_url;
+      const diffResponse = await octokit.request('GET {url}', {
+        url: diffUrl,
+        headers: {
+          accept: 'application/vnd.github.v3.diff'
+        }
+      });
+      
+      return diffResponse.data as unknown as string;
     }
-  });
-  
-  // When requesting a diff, the response data is a string
-  return response.data as unknown as string;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch PR diff: ${error.message}`);
+    } else {
+      throw new Error('Failed to fetch PR diff: Unknown error');
+    }
+  }
 }
 
 /**
