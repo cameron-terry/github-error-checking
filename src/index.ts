@@ -3,6 +3,7 @@ import * as github from '@actions/github';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getPullRequestDiff, parseAddedLines } from './diff-utils';
+import { LLMService, LLMAnalysisResult } from './llm-service';
 
 async function run(): Promise<void> {
   try {
@@ -50,8 +51,31 @@ async function run(): Promise<void> {
       core.setOutput('added-code', addedCode.length.toString());
     }
     
-    // Display each section
-    addedCode.forEach((section, index) => {
+    // Initialize LLM service for code analysis
+    const apiKey = process.env.OPENAI_API_KEY || core.getInput('openai-api-key', { required: !diffPath });
+    const modelName = core.getInput('llm-model') || 'gpt-4';
+    
+    let llmService: LLMService | null = null;
+    
+    try {
+      if (apiKey) {
+        llmService = new LLMService(apiKey);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        core.warning(`Failed to initialize LLM service: ${error.message}`);
+      } else {
+        core.warning('Unknown error initializing LLM service');
+      }
+    }
+    
+    // Array to store analysis results
+    const analysisResults: LLMAnalysisResult[] = [];
+    let totalScore = 0;
+    
+    // Display each section and analyze with LLM if available
+    for (let index = 0; index < addedCode.length; index++) {
+      const section = addedCode[index];
       console.log(`Section ${index + 1}:`);
       console.log(`File: ${section.file}`);
       console.log(`Added Lines: ${section.addedLines.length}`);
@@ -79,10 +103,54 @@ async function run(): Promise<void> {
         section.context.linesAfter.forEach(line => console.log(`  ${line}`));
       }
       
+      // Analyze with LLM if service is available
+      if (llmService) {
+        console.log('\nAnalyzing code with LLM...');
+        try {
+          const analysisResult = await llmService.analyzeErrorHandling(section);
+          analysisResults.push(analysisResult);
+          totalScore += analysisResult.score;
+          
+          // Display analysis results
+          console.log(`\nAnalysis Results (Error Handling Quality Score: ${analysisResult.score}/10):`);
+          
+          if (analysisResult.issues.length === 0) {
+            console.log('No error handling issues found.');
+          } else {
+            console.log(`Found ${analysisResult.issues.length} potential issues:`);
+            
+            analysisResult.issues.forEach((issue, i) => {
+              console.log(`\nIssue ${i + 1}:`);
+              console.log(`Severity: ${issue.severity}`);
+              console.log(`Description: ${issue.description}`);
+              console.log(`Suggestion: ${issue.suggestion}`);
+              if (issue.lineNumber) {
+                console.log(`Line: ~${issue.lineNumber}`);
+              }
+            });
+          }
+        } catch (error) {
+          if (error instanceof Error) {
+            console.log(`Error analyzing section: ${error.message}`);
+          } else {
+            console.log('Unknown error analyzing section');
+          }
+        }
+      } else {
+        console.log('\nLLM analysis not available. Skipping code analysis.');
+      }
+      
       console.log('\n');
-    });
+    }
     
-    console.log('Next step: Analyze with LLM and provide suggestions for error handling');
+    // Set outputs for GitHub Actions
+    if (!diffPath && llmService && analysisResults.length > 0) {
+      core.setOutput('analysis-results', JSON.stringify(analysisResults));
+      const averageScore = totalScore / analysisResults.length;
+      core.setOutput('error-score', averageScore.toFixed(2));
+      
+      console.log(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
+    }
     
   } catch (error) {
     if (error instanceof Error) {

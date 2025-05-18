@@ -38,9 +38,10 @@ jobs:
         id: error-check
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           
       - name: Report results
-        run: echo "Found ${{ steps.error-check.outputs.added-code }} sections to analyze"
+        run: echo "Found ${{ steps.error-check.outputs.added-code }} sections with an average score of ${{ steps.error-check.outputs.error-score }}/10"
 ```
 
 ## Configuration
@@ -51,13 +52,16 @@ The action accepts the following inputs:
 |-------|-------------|----------|---------|
 | `github-token` | GitHub token for API access | Yes | `${{ github.token }}` |
 | `error-types` | Types of error handling to check for (comma-separated) | No | `exceptions,null-checks,undefined-checks` |
+| `openai-api-key` | OpenAI API key for analyzing code | Yes | - |
+| `llm-model` | LLM model to use for analysis | No | `gpt-4` |
 
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
-| `added-code` | JSON array of added code sections with context |
-| `suggestions` | Suggestions for improving error handling |
+| `added-code` | Number of code sections found for analysis |
+| `analysis-results` | JSON array of analysis results with issues and suggestions |
+| `error-score` | Average score (0-10) for error handling quality across all sections |
 
 ## Development
 
@@ -65,6 +69,7 @@ The action accepts the following inputs:
 
 - Node.js 14 or later
 - npm or yarn
+- OpenAI API key for testing LLM integration
 
 ### Setting up the development environment
 
@@ -96,10 +101,14 @@ The action accepts the following inputs:
 
 ### Local Testing
 
-You can test the diff parsing functionality locally without creating a real PR:
+You can test the diff parsing and LLM analysis functionality locally without creating a real PR:
 
 1. Use one of the sample diff files in the `samples/` directory
-2. Run the local test runner:
+2. Set your OpenAI API key in the environment:
+   ```
+   export OPENAI_API_KEY=your_api_key_here
+   ```
+3. Run the local test runner:
    ```
    node lib/index.js samples/axios.diff
    ```
@@ -108,7 +117,7 @@ You can test the diff parsing functionality locally without creating a real PR:
    node lib/index.js samples/user-order-services.diff
    ```
 
-This will show you the added code sections that would be analyzed in a real PR.
+This will show you the added code sections and their LLM analysis results for error handling.
 
 See the [samples/README.md](samples/README.md) for more information about the sample files and the error handling issues they contain.
 
@@ -116,6 +125,7 @@ See the [samples/README.md](samples/README.md) for more information about the sa
 
 - `src/index.ts` - Main entry point for the GitHub Action
 - `src/diff-utils.ts` - Utilities for parsing PR diffs and extracting added code
+- `src/llm-service.ts` - Service for LLM-based code analysis
 - `tests/` - Test files
 - `lib/` - Compiled JavaScript output from TypeScript
 - `.github/workflows/` - GitHub workflows for testing the action
@@ -130,6 +140,7 @@ See the [samples/README.md](samples/README.md) for more information about the sa
 
 - `@actions/core` and `@actions/github` - Core GitHub Actions libraries
 - `parse-diff` - Library to parse git diff output
+- `openai` - OpenAI API client for LLM integration
 - TypeScript support: `typescript`, `@types/node`, `@types/jest`
 - Development tools: Jest with `ts-jest`, ESLint with TypeScript plugins, `@vercel/ncc`
 
@@ -145,13 +156,24 @@ The first step of the process identifies lines that have been added in a pull re
 4. Outputs structured data for further analysis
 5. Differentiates between new code blocks and modifications to existing code
 
-### Step 2: LLM Analysis (Coming Soon)
+### Step 2: LLM Analysis
 
-This step will analyze the added code for proper error handling patterns using LLM technology.
+This step analyzes the added code for proper error handling patterns using LLM technology:
 
-### Step 3: Suggestions (Coming Soon)
+1. Prepares each code section with relevant context
+2. Sends the code to OpenAI's API with a specialized prompt
+3. Analyzes the code for missing exception handling, null checks, and other error handling patterns
+4. Returns structured feedback with severity ratings and suggestions
+5. Assigns an overall score (0-10) for error handling quality
 
-The final step will provide actionable suggestions for improving error handling.
+### Step 3: Suggestions
+
+The final step provides actionable suggestions for improving error handling:
+
+1. Groups related issues for better clarity
+2. Provides specific code suggestions for fixing each issue
+3. Highlights critical issues that require immediate attention
+4. Gives an overall assessment of error handling quality
 
 ## Type Safety
 
@@ -168,6 +190,7 @@ The project is fully typed with TypeScript, providing:
 
 Currently implemented:
 - Step 1: Identifying added lines of code in a PR
+- Step 2: LLM analysis of code for error handling issues
 - Development environment with local testing capability
 - Sample diff files with various error handling patterns
 - Complete TypeScript conversion for type safety 
