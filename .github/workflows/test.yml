@@ -28,11 +28,28 @@ jobs:
       - name: Build
         run: npm run build
       
-      - name: Check for error handling
+      - name: Check sample with LLM integration
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_MODEL: 'gpt-3.5-turbo'
         run: node lib/src/index.js samples/user-order-services.diff
       
+      - name: Verify dist build works with LLM
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_MODEL: 'gpt-3.5-turbo'
+        run: node dist/index.js samples/axios.diff
+      
+      - name: Test GitHub Action
+        uses: ./
+        id: action-test
+        with:
+          github-token: ${{ github.token }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          llm-model: 'gpt-3.5-turbo'
+      
       - name: Log results
-        run: echo "Analysis complete. See logs above for details." 
+        run: |
+          echo "Analysis complete. See logs above for details."
+          echo "Added code sections: ${{ steps.action-test.outputs.added-code }}"
+          echo "Error score: ${{ steps.action-test.outputs.error-score }}" 

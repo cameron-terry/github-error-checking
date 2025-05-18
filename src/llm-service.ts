@@ -158,7 +158,7 @@ Consider these error handling patterns:
 2. Null/undefined checks
 3. Error propagation
 4. Input validation
-5. Edge cases
+5. Edge case
 6. Resource cleanup
 
 Respond with a JSON object containing:
@@ -166,6 +166,9 @@ Respond with a JSON object containing:
    - description: Description of the issue
    - suggestion: Specific code suggestion to fix the issue
    - severity: "low", "medium", or "high" based on potential impact
+    - low: Minor style, readability, or non-blocking issues (e.g. redundant code, naming, TODOs). Safe to merge, can fix later.
+    - medium: Potential bugs, unclear logic, or maintainability concerns (e.g. incomplete error handling, misuse of APIs). Should fix before merging.
+    - high: Likely bugs, security risks, or critical logic errors (e.g. broken algorithms, unsafe inputs, race conditions). Must fix before merging.
    - lineNumber: Approximate line number in the added code section (optional)
 2. A "score" from 0-10 rating the overall quality of error handling (0=poor, 10=excellent)
 

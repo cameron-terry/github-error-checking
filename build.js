@@ -21,7 +21,7 @@ try {
   console.log('TypeScript compilation completed successfully!');
   
   console.log('Building for production with ncc...');
-  execSync('npx @vercel/ncc build lib/index.js -o dist', { stdio: 'inherit' });
+  execSync('npx @vercel/ncc build lib/src/index.js -o dist', { stdio: 'inherit' });
   console.log('ncc build completed successfully!');
 
   console.log('Build completed successfully!');
