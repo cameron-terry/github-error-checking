@@ -48,7 +48,6 @@ async function run(): Promise<void> {
       diff = fs.readFileSync(path.resolve(diffPath), 'utf8');
     } else {
       // GitHub Actions mode
-      logger.info('Running in GitHub Actions mode');
       let token = '';
       
       try {

@@ -53,3 +53,4 @@ jobs:
           echo "Analysis complete. See logs above for details."
           echo "Added code sections: ${{ steps.action-test.outputs.added-code }}"
           echo "Error score: ${{ steps.action-test.outputs.error-score }}" 
+          echo "Analysis results: ${{ steps.action-test.outputs.analysis-results }}"
