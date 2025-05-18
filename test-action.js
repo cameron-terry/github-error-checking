@@ -56,8 +56,16 @@ async function runTest() {
         get: ({ owner, repo, pull_number, mediaType }) => {
           // Return mock diff data from the sample file
           const diffPath = process.argv[2] || path.resolve('./samples/axios.diff');
-          const diffData = fs.readFileSync(diffPath, 'utf8');
-          return { data: diffData };
+          try {
+            if (!fs.existsSync(diffPath)) {
+              throw new Error(`Sample diff file not found: ${diffPath}`);
+            }
+            const diffData = fs.readFileSync(diffPath, 'utf8');
+            return { data: diffData };
+          } catch (error) {
+            console.error(`Error reading sample diff file: ${error.message}`);
+            return { data: 'diff --git a/test.js b/test.js\n+console.log("test");' };
+          }
         }
       }
     })
@@ -97,16 +105,20 @@ async function runTest() {
 
   try {
     // Import and run the action
-    const actionModule = require('./dist/index.js');
-    
-    // Wait a bit to ensure all async operations complete
-    await new Promise(resolve => setTimeout(resolve, 20000));
-    
-    console.log('\n========== Action Outputs ==========');
-    console.log(JSON.stringify(outputs, null, 2));
-    console.log('===================================');
+    try {
+      const actionModule = require('./dist/index.js');
+      
+      // Wait a bit to ensure all async operations complete
+      await new Promise(resolve => setTimeout(resolve, 20000));
+      
+      console.log('\n========== Action Outputs ==========');
+      console.log(JSON.stringify(outputs, null, 2));
+      console.log('===================================');
+    } catch (actionError) {
+      console.error('Error executing action module:', actionError.message);
+    }
   } catch (error) {
-    console.error('Error executing action:', error);
+    console.error('Error setting up test environment:', error.message);
   } finally {
     // Restore original argv and require
     process.argv = originalArgv;
@@ -116,5 +128,6 @@ async function runTest() {
 
 // Run the test
 runTest().catch(error => {
-  console.error('Error running test:', error);
+  console.error('Error running test:', error.message);
+  process.exit(1);
 }); 

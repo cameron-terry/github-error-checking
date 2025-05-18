@@ -70,50 +70,74 @@ export async function getPullRequestDiff(
   try {
     // First, try with v5 API format (using pulls.get)
     if (octokit.pulls && typeof octokit.pulls.get === 'function') {
-      const response = await octokit.pulls.get({
-        owner: repo.owner,
-        repo: repo.repo,
-        pull_number: pullNumber,
-        mediaType: {
-          format: 'diff'
-        }
-      });
-      
-      // When requesting a diff, the response data is a string
-      return response.data as unknown as string;
+      try {
+        const response = await octokit.pulls.get({
+          owner: repo.owner,
+          repo: repo.repo,
+          pull_number: pullNumber,
+          mediaType: {
+            format: 'diff'
+          }
+        });
+        
+        // When requesting a diff, the response data is a string
+        return response.data as unknown as string;
+      } catch (apiErr) {
+        throw new Error(`Failed to fetch PR diff using pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
+      }
     } 
     // Try with rest.pulls for newer API version
     else if (octokit.rest && octokit.rest.pulls && typeof octokit.rest.pulls.get === 'function') {
-      const response = await octokit.rest.pulls.get({
-        owner: repo.owner,
-        repo: repo.repo,
-        pull_number: pullNumber,
-        mediaType: {
-          format: 'diff'
-        }
-      });
-      
-      return response.data as unknown as string;
+      try {
+        const response = await octokit.rest.pulls.get({
+          owner: repo.owner,
+          repo: repo.repo,
+          pull_number: pullNumber,
+          mediaType: {
+            format: 'diff'
+          }
+        });
+        
+        return response.data as unknown as string;
+      } catch (apiErr) {
+        throw new Error(`Failed to fetch PR diff using rest.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
+      }
     } 
     // Fallback to fetching raw diff URL
     else {
-      // Get PR info first
-      const prResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
-        owner: repo.owner,
-        repo: repo.repo,
-        pull_number: pullNumber
-      });
-      
-      // Then fetch the diff URL
-      const diffUrl = prResponse.data.diff_url;
-      const diffResponse = await octokit.request('GET {url}', {
-        url: diffUrl,
-        headers: {
-          accept: 'application/vnd.github.v3.diff'
+      try {
+        // Get PR info first
+        const prResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+          owner: repo.owner,
+          repo: repo.repo,
+          pull_number: pullNumber
+        });
+        
+        if (!prResponse?.data?.diff_url) {
+          throw new Error('PR response missing diff URL');
         }
-      });
-      
-      return diffResponse.data as unknown as string;
+        
+        // Then fetch the diff URL
+        const diffUrl = prResponse.data.diff_url;
+        try {
+          const diffResponse = await octokit.request('GET {url}', {
+            url: diffUrl,
+            headers: {
+              accept: 'application/vnd.github.v3.diff'
+            }
+          });
+          
+          if (!diffResponse?.data) {
+            throw new Error('Diff response missing data');
+          }
+          
+          return diffResponse.data as unknown as string;
+        } catch (diffErr) {
+          throw new Error(`Failed to fetch diff from URL ${diffUrl}: ${diffErr instanceof Error ? diffErr.message : 'Unknown error'}`);
+        }
+      } catch (prErr) {
+        throw new Error(`Failed to fetch PR information: ${prErr instanceof Error ? prErr.message : 'Unknown error'}`);
+      }
     }
   } catch (error) {
     if (error instanceof Error) {

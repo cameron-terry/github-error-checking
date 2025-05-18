@@ -6,6 +6,7 @@ import { getPullRequestDiff, parseAddedLines } from './diff-utils';
 import { LLMService, LLMAnalysisResult } from './llm-service';
 import { logger, LogLevel } from './logger';
 import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
+import { validateAllInputs, validateRequiredInput } from './validate-inputs';
 
 async function run(): Promise<void> {
   try {
@@ -20,10 +21,26 @@ async function run(): Promise<void> {
     
     logger.debug(`Log level: ${logger.getLogLevel()}`);
     
-    let diff: string;
-    
     // Check if a file path is provided as a command-line argument
     const diffPath = process.argv[2];
+    
+    // If not in local file mode, validate all action inputs
+    if (!diffPath) {
+      logger.debug('Validating action inputs...');
+      if (!validateAllInputs()) {
+        logger.warning('Some inputs failed validation. Attempting to continue with default values.');
+      }
+    } else {
+      // In local file mode, we only need to ensure the OpenAI API key is present
+      // if we want to use LLM analysis
+      if (process.env.OPENAI_API_KEY) {
+        logger.debug('OpenAI API key found in environment.');
+      } else {
+        logger.warning('No OpenAI API key found in environment. LLM analysis will be skipped.');
+      }
+    }
+    
+    let diff: string;
     
     if (diffPath) {
       // Local mode: Read diff from file
@@ -59,32 +76,22 @@ async function run(): Promise<void> {
           // Use a sample diff file if we're not in a PR context
           const sampleDiffPath = path.join(__dirname, '..', '..', 'samples', 'axios.diff');
           if (fs.existsSync(sampleDiffPath)) {
-            diff = fs.readFileSync(sampleDiffPath, 'utf8');
-            logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
+            try {
+              diff = fs.readFileSync(sampleDiffPath, 'utf8');
+              logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
+            } catch (readErr) {
+              logger.warning(`Failed to read sample diff file: ${readErr instanceof Error ? readErr.message : 'Unknown error'}`);
+              // Fall back to minimal diff
+              diff = getMinimalSampleDiff();
+            }
           } else {
             // Small sample diff for testing
-            diff = `diff --git a/src/sample.js b/src/sample.js
-index 123456..789012 100644
---- a/src/sample.js
-+++ b/src/sample.js
-@@ -1,5 +1,6 @@
- const fs = require('fs');
- const path = require('path');
-+const axios = require('axios');
- 
- /**
-  * Read a configuration file`;
-            logger.info('Using inline sample diff for testing');
+            logger.info('Sample diff file not found, using inline sample diff');
+            diff = getMinimalSampleDiff();
           }
         } catch (error) {
-          logger.warning('Failed to load sample diff, using minimal test diff');
-          diff = `diff --git a/test.js b/test.js
-index 123..456 100644
---- a/test.js
-+++ b/test.js
-@@ -1,1 +1,2 @@
- // Test file
-+console.log('Hello world');`;
+          logger.warning(`Error accessing sample diff: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          diff = getMinimalSampleDiff();
         }
       } else {
         // This is a real PR, get the pull number
@@ -149,14 +156,17 @@ index 123..456 100644
     
     try {
       if (apiKey) {
-        llmService = new LLMService(apiKey, modelName);
+        try {
+          llmService = new LLMService(apiKey, modelName);
+          logger.info(`Using LLM model: ${modelName}`);
+        } catch (llmErr) {
+          logger.warning(`Failed to initialize LLM service: ${llmErr instanceof Error ? llmErr.message : 'Unknown error'}`);
+        }
+      } else {
+        logger.warning('No OpenAI API key provided. LLM analysis will be skipped.');
       }
     } catch (error) {
-      if (error instanceof Error) {
-        logger.warning(`Failed to initialize LLM service: ${error.message}`);
-      } else {
-        logger.warning('Unknown error initializing LLM service');
-      }
+      logger.warning(`Error during LLM setup: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
     // Array to store analysis results
@@ -226,16 +236,13 @@ index 123..456 100644
               });
             }
           } else {
-            logger.info(`\nSkipping results for ${result.file} (No issues found or score is 0)`);
+            logger.info(`Skipping result for ${result.file} with no issues and score of 0`);
           }
         }
         
       } catch (error) {
-        if (error instanceof Error) {
-          logger.warning(`Error performing LLM analysis: ${error.message}`);
-        } else {
-          logger.warning('Unknown error during LLM analysis');
-        }
+        logger.warning(`Error performing LLM analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        logger.debug(`Analysis error details: ${JSON.stringify(error)}`);
       }
     } else {
       logger.info('LLM analysis not available. Skipping code analysis.');
@@ -259,6 +266,17 @@ index 123..456 100644
       logger.error(`Action failed with unknown error`);
     }
   }
+}
+
+// Helper function to provide minimal sample diff
+function getMinimalSampleDiff(): string {
+  return `diff --git a/test.js b/test.js
+index 123..456 100644
+--- a/test.js
++++ b/test.js
+@@ -1,1 +1,2 @@
+// Test file
++console.log('Hello world');`;
 }
 
 run(); 
