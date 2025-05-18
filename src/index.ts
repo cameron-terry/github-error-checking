@@ -85,17 +85,30 @@ async function run(): Promise<void> {
     if (context.payload.pull_request && 'diff' in context.payload.pull_request) {
       console.log('Using embedded diff from mock event');
       diff = context.payload.pull_request.diff as string;
+      console.log(`Mock diff length: ${diff.length} characters`);
+      console.log(`Mock diff preview: ${diff.substring(0, 200)}...`);
     } else {
       // Get PR diff normally through the GitHub API
       console.log('Fetching diff from GitHub API');
       diff = await getPullRequestDiff(octokit, repo, pullNumber);
     }
     
+    // Log diff for debugging
+    console.log(`Processing diff (${diff.length} characters)`);
+    
     // Parse diff to get added lines with file context
     const addedCode = parseAddedLines(diff);
     
     // Output the added code sections for further analysis
     core.setOutput('added-code', JSON.stringify(addedCode));
+    
+    // Log what we found
+    console.log(`Raw sections found: ${addedCode.length}`);
+    if (addedCode.length > 0) {
+      addedCode.forEach((section, idx) => {
+        console.log(`Section ${idx+1}: ${section.file} - ${section.addedLines.length} lines added`);
+      });
+    }
     
     // This will be replaced by LLM analysis in step 2
     core.info(`Found ${addedCode.length} sections of added code`);
