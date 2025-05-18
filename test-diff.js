@@ -24,6 +24,19 @@ const addedCode = parseAddedLines(diff);
 // Log the results
 console.log(`\nFound ${addedCode.length} sections of added code\n`);
 
+// Set GitHub Actions output if running in GitHub Actions
+if (process.env.GITHUB_ACTIONS === 'true') {
+  // Check if GITHUB_OUTPUT is available (newer GitHub Actions)
+  if (process.env.GITHUB_OUTPUT) {
+    const fs = require('fs');
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `added-code=${addedCode.length}\n`);
+    console.log(`Output added-code=${addedCode.length} written to $GITHUB_OUTPUT`);
+  } else {
+    // Fall back to older ::set-output:: syntax
+    console.log(`::set-output name=added-code::${addedCode.length}`);
+  }
+}
+
 if (addedCode.length > 0) {
   addedCode.forEach((section, index) => {
     console.log(`Section ${index + 1}:`);

@@ -25,6 +25,7 @@ if [ "$USE_TEST_DIFF" = "true" ]; then
     echo "Running with sample diff file: $SAMPLE_DIFF_PATH"
     
     # In test mode, directly run our standalone test script
+    # Pass through GitHub-specific environment variables
     node test-diff.js "$SAMPLE_DIFF_PATH"
     exit $?
   else
