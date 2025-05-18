@@ -1,0 +1,48 @@
+diff --git a/src/test-file.ts b/src/test-file.ts
+index 0000000..1111111 100644
+--- a/src/test-file.ts
++++ b/src/test-file.ts
+@@ -1,5 +1,18 @@
+ import * as fs from 'fs';
+
+ function readFile(filePath: string): string {
+-  return fs.readFileSync(filePath, 'utf8');
++  try {
++    return fs.readFileSync(filePath, 'utf8');
++  } catch (error) {
++    console.error(`Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
++    throw new Error(`Failed to read file: ${filePath}`);
++  }
++}
++
++export function processData(filePath: string): void {
++  if (!filePath) {
++    throw new Error('File path cannot be empty');
++  }
++  
++  const data = readFile(filePath);
++  console.log(`Processed ${data.length} bytes of data`);
+ }
+diff --git a/src/helper.js b/src/helper.js
+index 2222222..3333333 100644
+--- a/src/helper.js
++++ b/src/helper.js
+@@ -1,4 +1,16 @@
+ const fs = require('fs');
+
+-function writeToFile(path, data) {
+-  fs.writeFileSync(path, data);
++function writeToFile(path, data) {
++  if (!path) {
++    console.error('Path cannot be empty');
++    return false;
++  }
++  
++  try {
++    fs.writeFileSync(path, data);
++    return true;
++  } catch (error) {
++    console.error(`Failed to write file: ${error.message}`);
++    return false;
++  }
++} 

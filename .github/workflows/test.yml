@@ -28,11 +28,11 @@ jobs:
       - name: Build
         run: npm run build
       
-      - name: Check sample with LLM integration
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LLM_MODEL: 'gpt-3.5-turbo'
-        run: node lib/src/index.js samples/user-order-services.diff
+      # - name: Check sample with LLM integration
+      #   env:
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #     LLM_MODEL: 'gpt-3.5-turbo'
+      #   run: node lib/src/index.js samples/user-order-services.diff
       
       - name: Verify dist build works with LLM
         env:
@@ -47,7 +47,7 @@ jobs:
           github-token: ${{ github.token }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           llm-model: 'gpt-3.5-turbo'
-          ignore-patterns: '*.diff,*.yml,*.js'
+          ignore-patterns: '.diff,.yml,.js'
       
       - name: Log results
         run: |

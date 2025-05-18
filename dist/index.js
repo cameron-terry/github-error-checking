@@ -395,7 +395,20 @@ function shouldIgnoreFile(filePath, language = DEFAULT_LANGUAGE) {
     // Convert the path to lowercase for case-insensitive matching
     const lowerFilePath = filePath.toLowerCase();
     // Check if any pattern matches the file path
-    return patterns.some(pattern => lowerFilePath.includes(pattern));
+    for (const pattern of patterns) {
+        // Special handling for file extensions (patterns starting with '.')
+        if (pattern.startsWith('.') && !pattern.includes('/')) {
+            // Check if filename ends with the extension
+            if (lowerFilePath.endsWith(pattern)) {
+                return true;
+            }
+        }
+        // For non-extension patterns, use regular inclusion check
+        else if (lowerFilePath.includes(pattern)) {
+            return true;
+        }
+    }
+    return false;
 }
 /**
  * Checks if file type filtering is enabled
@@ -511,7 +524,6 @@ async function run() {
         }
         else {
             // GitHub Actions mode
-            logger_1.logger.info('Running in GitHub Actions mode');
             let token = '';
             try {
                 // Try to get token from env or input

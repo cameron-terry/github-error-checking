@@ -95,7 +95,21 @@ export function shouldIgnoreFile(filePath: string, language: string = DEFAULT_LA
   const lowerFilePath = filePath.toLowerCase();
   
   // Check if any pattern matches the file path
-  return patterns.some(pattern => lowerFilePath.includes(pattern));
+  for (const pattern of patterns) {
+    // Special handling for file extensions (patterns starting with '.')
+    if (pattern.startsWith('.') && !pattern.includes('/')) {
+      // Check if filename ends with the extension
+      if (lowerFilePath.endsWith(pattern)) {
+        return true;
+      }
+    } 
+    // For non-extension patterns, use regular inclusion check
+    else if (lowerFilePath.includes(pattern)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
