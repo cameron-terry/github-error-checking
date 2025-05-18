@@ -1,0 +1,143 @@
+diff --git a/src/user-service.js b/src/user-service.js
+index abcdef..123456 100644
+--- a/src/user-service.js
++++ b/src/user-service.js
+@@ -1,6 +1,7 @@
+ const axios = require('axios');
+ const config = require('./config');
+ const logger = require('./logger');
++const cache = require('./cache');
+ 
+ /**
+  * Fetches a user by ID
+@@ -12,6 +13,22 @@ async function getUserById(userId) {
+   return response.data;
+ }
+ 
++/**
++ * Fetches a user's profile with details from multiple sources
++ * @param {string} userId - The user ID
++ * @returns {Promise<Object>} The user profile
++ */
++async function getUserProfile(userId) {
++  // Try to get from cache first
++  const cachedProfile = cache.get(`profile_${userId}`);
++  if (cachedProfile) return cachedProfile;
++  
++  const user = await getUserById(userId);
++  const preferences = await axios.get(`${config.apiUrl}/preferences/${userId}`);
++  user.preferences = preferences.data;
++  return user;
++}
++
+ /**
+  * Updates a user in the database
+  * @param {string} userId - The user ID
+@@ -28,6 +45,28 @@ async function updateUser(userId, userData) {
+   return response.data;
+ }
+ 
++/**
++ * Gets the last login timestamp for a user
++ * @param {string} userId - The user ID
++ * @returns {Promise<string>} The last login timestamp
++ */
++async function getLastLogin(userId) {
++  try {
++    const response = await axios.get(`${config.apiUrl}/activity/${userId}`);
++    const lastLogin = response.data.activity.login.timestamp;
++    return lastLogin;
++  } catch (error) {
++    logger.error(`Failed to get last login for user ${userId}`);
++    return null;
++  }
++}
++
+ module.exports = {
+-  getUserById, updateUser
++  getUserById,
++  getUserProfile,
++  updateUser,
++  getLastLogin
+ };
++
++
+diff --git a/src/order-processor.js b/src/order-processor.js
+index defabc..987654 100644
+--- a/src/order-processor.js
++++ b/src/order-processor.js
+@@ -3,6 +3,7 @@ const db = require('./database');
+ const logger = require('./logger');
+ const mailer = require('./mailer');
+ const config = require('./config');
++const userService = require('./user-service');
+ 
+ /**
+  * Processes an order
+@@ -14,6 +15,36 @@ async function processOrder(order) {
+   return { orderId: savedOrder.id, status: 'processed' };
+ }
+ 
++/**
++ * Validates and processes a new order with user details
++ * @param {Object} orderData - The order data from the frontend
++ * @returns {Promise<Object>} The processed order result
++ */
++async function processUserOrder(orderData) {
++  // Check if order is valid
++  if (!orderData.items || orderData.items.length === 0) {
++    throw new Error('Order must contain at least one item');
++  }
++  
++  const user = await userService.getUserById(orderData.userId);
++  const shippingAddress = orderData.useDefaultAddress ? user.defaultAddress : orderData.shippingAddress;
++  
++  const paymentResult = await processPayment(orderData.paymentDetails, orderData.total);
++  
++  // Create final order
++  const order = {
++    items: orderData.items,
++    userId: orderData.userId,
++    total: calculateTotal(orderData.items), // No validation if items exist
++    shippingAddress,
++    paymentId: paymentResult.id,
++    status: 'pending'
++  };
++  
++  return processOrder(order);
++}
++
+ /**
+  * Calculates the total price of an order
+  * @param {Array} items - The order items
+@@ -26,6 +57,24 @@ function calculateTotal(items) {
+   return total;
+ }
+ 
++/**
++ * Process payment for an order
++ * @param {Object} paymentDetails - Payment information
++ * @param {number} amount - Payment amount
++ * @returns {Promise<Object>} Payment result
++ */
++async function processPayment(paymentDetails, amount) {
++  try {
++    const provider = config.paymentProviders[paymentDetails.provider];
++    const result = await provider.processPayment(paymentDetails, amount);
++    return result;
++  } catch (error) {
++    logger.error(`Payment processing failed: ${error.message}`);
++    throw new Error('Payment processing failed');
++  }
++}
++
+ /**
+  * Cancels an order
+  * @param {string} orderId - The order ID
+@@ -39,5 +88,6 @@ async function cancelOrder(orderId) {
+ 
+ module.exports = {
+   processOrder,
++  processUserOrder,
+   cancelOrder
+ }; 
