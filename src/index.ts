@@ -4,11 +4,43 @@ import { getPullRequestDiff, parseAddedLines, AddedCodeSection } from './diff-ut
 
 async function run(): Promise<void> {
   try {
-    // Check if we're running in GitHub Actions or local mode
-    const isGitHubAction = process.env.IS_GITHUB_ACTION === 'true' || process.env.GITHUB_ACTIONS === 'true';
+    const fs = require('fs');
+    const path = require('path');
+
+    // If GitHub event path was provided as argument, it's a GitHub Action
+    const eventPath = process.argv[2];
+    
+    // Debug logging
+    console.log(`Arguments: ${process.argv.join(', ')}`);
+    console.log(`Event path: ${eventPath}`);
+    console.log(`GITHUB_ACTIONS env: ${process.env.GITHUB_ACTIONS}`);
+    console.log(`IS_GITHUB_ACTION env: ${process.env.IS_GITHUB_ACTION}`);
+    
+    // Check if we're running in a valid GitHub Actions environment
+    // If an event file is passed and it exists, we're definitely in GitHub Actions
+    const fileExists = eventPath && fs.existsSync(eventPath);
+    const isGitHubAction = fileExists || 
+                           process.env.IS_GITHUB_ACTION === 'true' || 
+                           process.env.GITHUB_ACTIONS === 'true';
+    
+    console.log(`Event file exists: ${fileExists}`);
     console.log(`Running in GitHub Actions mode: ${isGitHubAction}`);
     
-    // If running locally, expect a diff file path
+    // If we have an event file, try to parse it
+    if (fileExists) {
+      console.log(`Reading event from ${eventPath}`);
+      try {
+        const eventData = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
+        console.log(`Event type: ${eventData.action || 'unknown'}`);
+        if (eventData.pull_request) {
+          console.log(`PR number: ${eventData.pull_request.number}`);
+        }
+      } catch (e) {
+        console.error(`Error parsing event file: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    
+    // If running in local diff mode, process the file
     if (!isGitHubAction) {
       const diffPath = process.argv[2];
       if (!diffPath) {
@@ -17,8 +49,6 @@ async function run(): Promise<void> {
         process.exit(1);
       }
       
-      const fs = require('fs');
-      const path = require('path');
       const diff = fs.readFileSync(path.resolve(diffPath), 'utf8');
       const addedCode = parseAddedLines(diff);
       
