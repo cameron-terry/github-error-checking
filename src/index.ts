@@ -135,7 +135,7 @@ index 123..456 100644
     const analysisResults: LLMAnalysisResult[] = [];
     let totalScore = 0;
     
-    // Display each section and analyze with LLM if available
+    // Display each section found
     for (let index = 0; index < addedCode.length; index++) {
       const section = addedCode[index];
       console.log(`Section ${index + 1}:`);
@@ -165,23 +165,29 @@ index 123..456 100644
         section.context.linesAfter.forEach(line => console.log(`  ${line}`));
       }
       
-      // Analyze with LLM if service is available
-      if (llmService) {
-        console.log('\nAnalyzing code with LLM...');
-        try {
-          const analysisResult = await llmService.analyzeErrorHandling(section);
-          analysisResults.push(analysisResult);
-          totalScore += analysisResult.score;
+      console.log('\n');
+    }
+    
+    // Analyze using LLM if service is available
+    if (llmService) {
+      console.log('\nAnalyzing code with LLM by file...');
+      try {
+        // Use the new file-based analysis approach
+        const fileResults = await llmService.analyzeByFile(addedCode);
+        
+        // Process and display each file's results
+        for (const result of fileResults) {
+          analysisResults.push(result);
+          totalScore += result.score;
           
-          // Display analysis results
-          console.log(`\nAnalysis Results (Error Handling Quality Score: ${analysisResult.score}/10):`);
+          console.log(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
           
-          if (analysisResult.issues.length === 0) {
+          if (result.issues.length === 0) {
             console.log('No error handling issues found.');
           } else {
-            console.log(`Found ${analysisResult.issues.length} potential issues:`);
+            console.log(`Found ${result.issues.length} potential issues:`);
             
-            analysisResult.issues.forEach((issue, i) => {
+            result.issues.forEach((issue, i) => {
               console.log(`\nIssue ${i + 1}:`);
               console.log(`Severity: ${issue.severity}`);
               console.log(`Description: ${issue.description}`);
@@ -191,18 +197,19 @@ index 123..456 100644
               }
             });
           }
-        } catch (error) {
-          if (error instanceof Error) {
-            console.log(`Error analyzing section: ${error.message}`);
-          } else {
-            console.log('Unknown error analyzing section');
-          }
+          
+          console.log('\n');
         }
-      } else {
-        console.log('\nLLM analysis not available. Skipping code analysis.');
+        
+      } catch (error) {
+        if (error instanceof Error) {
+          core.warning(`Error performing LLM analysis: ${error.message}`);
+        } else {
+          core.warning('Unknown error during LLM analysis');
+        }
       }
-      
-      console.log('\n');
+    } else {
+      console.log('\nLLM analysis not available. Skipping code analysis.');
     }
     
     // Set outputs for GitHub Actions
