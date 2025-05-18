@@ -75,7 +75,12 @@ export class LLMService {
       logger.debug(`Analyzing file: ${fileGroup.file} (${fileGroup.sections.length} sections)`);
       try {
         const result = await this.analyzeFileChanges(fileGroup);
-        results.push(result);
+        // Only add results with a score greater than 0 or with issues
+        if (result.score > 0 || result.issues.length > 0) {
+          results.push(result);
+        } else {
+          logger.info(`Skipping result for ${fileGroup.file} with no issues and score of 0`);
+        }
       } catch (error) {
         if (error instanceof Error) {
           logger.warning(`Error analyzing file ${fileGroup.file}: ${error.message}`);
@@ -83,16 +88,8 @@ export class LLMService {
           logger.warning(`Unknown error analyzing file ${fileGroup.file}`);
         }
         
-        // Add a default result with error message
-        results.push({
-          file: fileGroup.file,
-          issues: [{
-            description: "Error analyzing file",
-            suggestion: "Please review manually",
-            severity: "medium"
-          }],
-          score: 0
-        });
+        // We no longer add a default result with score 0 when there's an error
+        logger.info(`Skipping result for ${fileGroup.file} due to analysis error`);
       }
     }
     
@@ -189,7 +186,7 @@ export class LLMService {
     return {
       file: fileChanges.file,
       issues: result.issues || [],
-      score: result.score || 0
+      score: result.issues && result.issues.length > 0 ? (result.score || 0) : (result.score > 0 ? result.score : 0)
     };
   }
   
@@ -253,7 +250,7 @@ export class LLMService {
       return {
         file: section.file,
         issues: result.issues || [],
-        score: result.score || 0
+        score: result.issues && result.issues.length > 0 ? (result.score || 0) : (result.score > 0 ? result.score : 0)
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -262,7 +259,8 @@ export class LLMService {
         logger.warning('Unknown error occurred during LLM analysis');
       }
       
-      // Return a default result in case of error
+      // Return null or empty on error instead of a default result
+      logger.info(`Skipping result for ${section.file} due to analysis error`);
       return {
         file: section.file,
         issues: [],

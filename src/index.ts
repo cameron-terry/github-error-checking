@@ -187,25 +187,30 @@ index 123..456 100644
         
         // Process and display each file's results
         for (const result of fileResults) {
-          analysisResults.push(result);
-          totalScore += result.score;
-          
-          logger.info(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
-          
-          if (result.issues.length === 0) {
-            logger.info('No error handling issues found.');
-          } else {
-            logger.info(`Found ${result.issues.length} potential issues:`);
+          // Only process results with non-zero scores or issues
+          if (result.score > 0 || result.issues.length > 0) {
+            analysisResults.push(result);
+            totalScore += result.score;
             
-            result.issues.forEach((issue, i) => {
-              logger.info(`\nIssue ${i + 1}:`);
-              logger.info(`Severity: ${issue.severity}`);
-              logger.info(`Description: ${issue.description}`);
-              logger.info(`Suggestion: ${issue.suggestion}`);
-              if (issue.lineNumber) {
-                logger.info(`Line: ~${issue.lineNumber}`);
-              }
-            });
+            logger.info(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
+            
+            if (result.issues.length === 0) {
+              logger.info('No error handling issues found.');
+            } else {
+              logger.info(`Found ${result.issues.length} potential issues:`);
+              
+              result.issues.forEach((issue, i) => {
+                logger.info(`\nIssue ${i + 1}:`);
+                logger.info(`Severity: ${issue.severity}`);
+                logger.info(`Description: ${issue.description}`);
+                logger.info(`Suggestion: ${issue.suggestion}`);
+                if (issue.lineNumber) {
+                  logger.info(`Line: ~${issue.lineNumber}`);
+                }
+              });
+            }
+          } else {
+            logger.info(`\nSkipping results for ${result.file} (No issues found or score is 0)`);
           }
         }
         
