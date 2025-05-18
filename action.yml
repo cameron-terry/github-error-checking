@@ -12,12 +12,12 @@ inputs:
     required: false
     default: 'exceptions,null-checks,undefined-checks'
   openai-api-key:
-    description: 'OpenAI API key for code analysis'
+    description: 'OpenAI API key for code analysis. Must be stored in GitHub Secrets.'
     required: true
   llm-model:
     description: 'LLM model to use for analysis (e.g., gpt-4, gpt-3.5-turbo)'
     required: false
-    default: 'gpt-4'
+    default: 'gpt-3.5-turbo'
 
 outputs:
   added-code:
@@ -29,7 +29,7 @@ outputs:
 
 runs:
   using: 'node16'
-  main: 'lib/index.js'
+  main: 'dist/index.js'
 
 branding:
   icon: 'shield'

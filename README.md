@@ -44,6 +44,21 @@ jobs:
         run: echo "Found ${{ steps.error-check.outputs.added-code }} sections with an average score of ${{ steps.error-check.outputs.error-score }}/10"
 ```
 
+2. Add your OpenAI API key to GitHub Secrets (see [Setting Up API Key](#setting-up-api-key))
+
+## Setting Up API Key
+
+This action requires an OpenAI API key to analyze code for error handling issues. To set up your API key:
+
+1. Obtain an API key from [OpenAI](https://platform.openai.com/api-keys)
+2. In your GitHub repository, go to **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Name: `OPENAI_API_KEY`
+5. Value: Your OpenAI API key
+6. Click **Add secret**
+
+The action will automatically use this secret to authenticate with OpenAI's API for code analysis.
+
 ## Configuration
 
 The action accepts the following inputs:
