@@ -31,6 +31,8 @@ jobs:
       - name: Check for error handling
         uses: ./
         id: error-check
+        env:
+          USE_TEST_DIFF: "true"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           
