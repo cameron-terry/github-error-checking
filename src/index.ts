@@ -4,7 +4,29 @@ import { getPullRequestDiff, parseAddedLines, AddedCodeSection } from './diff-ut
 
 async function run(): Promise<void> {
   try {
-    // Get inputs
+    // Check if we're running in GitHub Actions or local mode
+    const isGitHubAction = process.env.IS_GITHUB_ACTION === 'true' || process.env.GITHUB_ACTIONS === 'true';
+    console.log(`Running in GitHub Actions mode: ${isGitHubAction}`);
+    
+    // If running locally, expect a diff file path
+    if (!isGitHubAction) {
+      const diffPath = process.argv[2];
+      if (!diffPath) {
+        console.error('Please provide a path to a diff file');
+        console.error('Usage: node index.js <diff-file>');
+        process.exit(1);
+      }
+      
+      const fs = require('fs');
+      const path = require('path');
+      const diff = fs.readFileSync(path.resolve(diffPath), 'utf8');
+      const addedCode = parseAddedLines(diff);
+      
+      console.log(`Found ${addedCode.length} sections of added code`);
+      return;
+    }
+    
+    // GitHub Actions mode - get inputs from the action
     const token = core.getInput('github-token', { required: true });
     const errorTypes = core.getInput('error-types').split(',');
     
