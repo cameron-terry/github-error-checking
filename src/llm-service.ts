@@ -39,10 +39,6 @@ Respond with a JSON object containing:
    - severity: "low", "medium", or "high" based on potential impact
    - lineNumber: Approximate line number in the ADDED CODE section (optional)
 2. A "score" from 0 to 10 rating the overall quality of error handling (10 = excellent, 0 = critically flawed)
-  - 10: All critical paths have guards, validation, cleanup
-  - 7-9: Minor misses in edge handling or null checks
-  - 4-6: Missing validation or propagation in core logic
-  - 0-3: Completely missing try/catch or unsafe assumptions on inputs
 
 Example:
 {
