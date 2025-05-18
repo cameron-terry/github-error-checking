@@ -949,6 +949,12 @@ function parseLogLevel(level) {
     }
 }
 /**
+ * Check if running in GitHub Actions environment
+ */
+function isGitHubActions() {
+    return !!process.env.GITHUB_ACTIONS;
+}
+/**
  * Logger class for consistent logging throughout the application
  */
 class Logger {
@@ -992,7 +998,10 @@ class Logger {
     debug(message) {
         if (this.logLevel <= LogLevel.DEBUG) {
             core.debug(message);
-            console.log(`[DEBUG] ${message}`);
+            // Only use console.log when not in GitHub Actions
+            if (!isGitHubActions()) {
+                console.log(`[DEBUG] ${message}`);
+            }
         }
     }
     /**
@@ -1001,7 +1010,10 @@ class Logger {
     info(message) {
         if (this.logLevel <= LogLevel.INFO) {
             core.info(message);
-            console.log(`[INFO] ${message}`);
+            // Only use console.log when not in GitHub Actions
+            if (!isGitHubActions()) {
+                console.log(`[INFO] ${message}`);
+            }
         }
     }
     /**
@@ -1010,7 +1022,10 @@ class Logger {
     warning(message) {
         if (this.logLevel <= LogLevel.WARNING) {
             core.warning(message);
-            console.warn(`[WARNING] ${message}`);
+            // Only use console.warn when not in GitHub Actions
+            if (!isGitHubActions()) {
+                console.warn(`[WARNING] ${message}`);
+            }
         }
     }
     /**
@@ -1019,7 +1034,10 @@ class Logger {
     error(message) {
         if (this.logLevel <= LogLevel.ERROR) {
             core.error(message);
-            console.error(`[ERROR] ${message}`);
+            // Only use console.error when not in GitHub Actions
+            if (!isGitHubActions()) {
+                console.error(`[ERROR] ${message}`);
+            }
         }
     }
 }

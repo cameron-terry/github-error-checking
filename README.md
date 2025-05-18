@@ -39,6 +39,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          llm-model: gpt-3.5-turbo  # Optional: Set the LLM model
+          log-level: info  # Optional: Set the logging level
           
       - name: Report results
         run: echo "Found ${{ steps.error-check.outputs.added-code }} sections with an average score of ${{ steps.error-check.outputs.error-score }}/10"
@@ -70,6 +72,34 @@ The action accepts the following inputs:
 | `openai-api-key` | OpenAI API key for analyzing code | Yes | - |
 | `llm-model` | LLM model to use for analysis | No | `gpt-4` |
 | `log-level` | Logging level (debug, info, warning, error, none) | No | `info` |
+
+### Logging Levels
+
+The action supports different logging levels to control the verbosity of the output:
+
+- `debug`: Shows all messages, including detailed information about code sections analyzed
+- `info`: Shows general progress and analysis results (default)
+- `warning`: Shows only warnings and errors
+- `error`: Shows only errors
+- `none`: Suppresses all logs (only outputs will be set)
+
+You can set the log level in your workflow file:
+
+```yaml
+- name: Check for error handling
+  uses: cameronterry/github-error-checking@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+    log-level: debug  # Set to debug for more detailed output
+```
+
+When running locally, you can also set the log level via environment variable:
+
+```bash
+export LOG_LEVEL=debug
+node lib/src/index.js samples/axios.diff
+```
 
 ## Outputs
 
@@ -142,6 +172,7 @@ See the [samples/README.md](samples/README.md) for more information about the sa
 - `src/index.ts` - Main entry point for the GitHub Action
 - `src/diff-utils.ts` - Utilities for parsing PR diffs and extracting added code
 - `src/llm-service.ts` - Service for LLM-based code analysis
+- `src/logger.ts` - Logging utility with support for different verbosity levels
 - `tests/` - Test files
 - `lib/` - Compiled JavaScript output from TypeScript
 - `.github/workflows/` - GitHub workflows for testing the action
@@ -209,4 +240,5 @@ Currently implemented:
 - Step 2: LLM analysis of code for error handling issues
 - Development environment with local testing capability
 - Sample diff files with various error handling patterns
-- Complete TypeScript conversion for type safety 
+- Complete TypeScript conversion for type safety
+- Structured logging system with configurable verbosity levels 
