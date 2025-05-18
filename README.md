@@ -65,7 +65,6 @@ The action accepts the following inputs:
 
 - Node.js 14 or later
 - npm or yarn
-- TypeScript knowledge
 
 ### Setting up the development environment
 
