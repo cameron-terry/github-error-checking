@@ -15,25 +15,10 @@ inputs:
 outputs:
   added-code:
     description: 'Number of code sections found for analysis'
-  suggestions:
-    description: 'Error handling suggestions'
 
 runs:
-  using: 'composite'
-  steps:
-    - id: error-check
-      run: ${{ github.action_path }}/action.sh
-      shell: bash
-      
-    - id: set-output
-      if: always()
-      shell: bash
-      run: |
-        # Always set a default value for the output
-        if [ -z "$ADDED_CODE" ]; then
-          ADDED_CODE="3"
-        fi
-        echo "added-code=$ADDED_CODE" >> $GITHUB_OUTPUT
+  using: 'node16'
+  main: 'lib/index.js'
 
 branding:
   icon: 'shield'

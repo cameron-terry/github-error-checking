@@ -29,31 +29,7 @@ jobs:
         run: npm run build
       
       - name: Check for error handling
-        uses: ./
-        id: error-check
-        env:
-          USE_TEST_DIFF: "true"
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-        
-      - name: Force output
-        id: force-output
-        run: |
-          echo "Explicitly setting output"
-          echo "added-code=3" >> $GITHUB_OUTPUT
-          
+        run: node lib/index.js samples/axios.diff
+      
       - name: Log results
-        env:
-          ADDED_CODE: ${{ steps.error-check.outputs.added-code }}
-          ADDED_CODE_ENV: ${{ env.added_code }}
-          FORCE_OUTPUT: ${{ steps.force-output.outputs.added-code }}
-        run: |
-          echo "From error-check outputs: Found ${{ steps.error-check.outputs.added-code }} sections to analyze"
-          echo "From force-output: Found ${{ steps.force-output.outputs.added-code }} sections to analyze"
-          echo "From env: Found ${{ env.added_code }} sections to analyze"
-          echo "From env variable: Found $ADDED_CODE sections to analyze"
-          echo "From env variable 2: Found $ADDED_CODE_ENV sections to analyze"
-          echo "From forced output var: Found $FORCE_OUTPUT sections to analyze"
-          
-          # Try a hard-coded value
-          echo "From hardcoded: Found 3 sections to analyze" 
+        run: echo "Analysis complete. See logs above for details." 
