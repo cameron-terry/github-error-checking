@@ -11,13 +11,13 @@ import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
  * Constants for LLM prompts
  */
 const LLM_PROMPTS = {
-  ERROR_ANALYSIS_INSTRUCTION: "Identify any missing or improper error handling in the ADDED CODE section only.",
+  ERROR_ANALYSIS_INSTRUCTION: 'Identify any missing or improper error handling in the ADDED CODE section only.',
   ERROR_HANDLING_PATTERNS: `Consider these error handling patterns:
-1. Exception handling (try/catch blocks)
+1. Exception handling (try/catch blocks or unhandled async errors)
 2. Null/undefined checks
 3. Error propagation
 4. Input validation
-5. Edge cases
+5. Edge cases (e.g. empty inputs, extreme values, unexpected types, empty arrays/objects)
 6. Resource cleanup`,
   JSON_RESPONSE_FORMAT: `Analyze only the ADDED CODE section for missing or improper error handling. Do NOT evaluate unchanged code or suggest general improvements.
 
@@ -29,7 +29,8 @@ Focus only on the following error handling concerns:
 5. Missing edge case checks
 6. Missing cleanup of open resources (e.g. file handles, DB connections)
 
-Only report issues that are likely to cause real bugs, runtime errors, or maintainability problems. Do not report stylistic issues or theoretical concerns.
+Watch for APIs that can return null (e.g. array.find, regex.match, DOM accessors).
+Only report issues if they are *highly likely to cause real bugs, runtime errors, or maintenance problems*. Do not speculate or infer issues unless based on specific evidence in the code.
 
 Respond with a JSON object containing:
 1. An "issues" array with objects containing:
@@ -38,6 +39,10 @@ Respond with a JSON object containing:
    - severity: "low", "medium", or "high" based on potential impact
    - lineNumber: Approximate line number in the ADDED CODE section (optional)
 2. A "score" from 0 to 10 rating the overall quality of error handling (10 = excellent, 0 = critically flawed)
+  - 10: All critical paths have guards, validation, cleanup
+  - 7-9: Minor misses in edge handling or null checks
+  - 4-6: Missing validation or propagation in core logic
+  - 0-3: Completely missing try/catch or unsafe assumptions on inputs
 
 Example:
 {
@@ -175,7 +180,7 @@ export class LLMService {
       if (!fileMap.has(section.file)) {
         fileMap.set(section.file, []);
       }
-      fileMap.get(section.file)!.push(section);
+      fileMap.get(section.file)?.push(section);
     }
     
     // Convert map to array
@@ -210,11 +215,11 @@ export class LLMService {
     // Basic message configuration
     const messages = [
       {
-        role: "system" as const,
-        content: "You are a code analysis assistant specialized in identifying error handling issues in code. Your goal is to find places where the code lacks proper error handling or has potential issues. Provide analysis in a structured JSON format."
+        role: 'system' as const,
+        content: 'You are a code analysis assistant specialized in identifying error handling issues in code. Your goal is to find places where the code lacks proper error handling or has potential issues. Provide analysis in a structured JSON format.'
       },
       {
-        role: "user" as const,
+        role: 'user' as const,
         content: prompt
       }
     ];
@@ -229,7 +234,7 @@ export class LLMService {
       model: this.modelName,
       messages: messages,
       temperature: 0.2, // Lower temperature for more deterministic results
-      ...(supportsJsonFormat ? { response_format: { type: "json_object" } } : {})
+      ...(supportsJsonFormat ? { response_format: { type: 'json_object' } } : {})
     });
     
     // Parse the LLM response
@@ -274,11 +279,11 @@ export class LLMService {
       // Basic message configuration
       const messages = [
         {
-          role: "system" as const,
-          content: "You are a code analysis assistant specialized in identifying error handling issues in code. Your goal is to find places where the code lacks proper error handling or has potential issues. Provide analysis in a structured JSON format."
+          role: 'system' as const,
+          content: 'You are a code analysis assistant specialized in identifying error handling issues in code. Your goal is to find places where the code lacks proper error handling or has potential issues. Provide analysis in a structured JSON format.'
         },
         {
-          role: "user" as const,
+          role: 'user' as const,
           content: prompt
         }
       ];
@@ -293,7 +298,7 @@ export class LLMService {
         model: this.modelName,
         messages: messages,
         temperature: 0.2, // Lower temperature for more deterministic results
-        ...(supportsJsonFormat ? { response_format: { type: "json_object" } } : {})
+        ...(supportsJsonFormat ? { response_format: { type: 'json_object' } } : {})
       });
       
       // Parse the LLM response
