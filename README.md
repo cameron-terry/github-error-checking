@@ -69,6 +69,7 @@ The action accepts the following inputs:
 | `error-types` | Types of error handling to check for (comma-separated) | No | `exceptions,null-checks,undefined-checks` |
 | `openai-api-key` | OpenAI API key for analyzing code | Yes | - |
 | `llm-model` | LLM model to use for analysis | No | `gpt-4` |
+| `log-level` | Logging level (debug, info, warning, error, none) | No | `info` |
 
 ## Outputs
 

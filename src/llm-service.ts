@@ -4,6 +4,7 @@
 import { OpenAI } from 'openai';
 import * as core from '@actions/core';
 import { AddedCodeSection } from './diff-utils';
+import { logger } from './logger';
 
 /**
  * Interface for LLM analysis response
@@ -54,7 +55,7 @@ export class LLMService {
     // Use the specified model or get from input, fallback to gpt-3.5-turbo
     this.modelName = modelName || process.env.LLM_MODEL || core.getInput('llm-model', { required: false }) || 'gpt-3.5-turbo';
     
-    console.log(`Using LLM model: ${this.modelName}`);
+    logger.info(`Using LLM model: ${this.modelName}`);
   }
   
   /**
@@ -67,19 +68,19 @@ export class LLMService {
     const fileGroups = this.groupSectionsByFile(sections);
     const results: LLMAnalysisResult[] = [];
     
-    console.log(`Grouped ${sections.length} sections into ${fileGroups.length} files for analysis`);
+    logger.debug(`Grouped ${sections.length} sections into ${fileGroups.length} files for analysis`);
     
     // Analyze each file
     for (const fileGroup of fileGroups) {
-      console.log(`Analyzing file: ${fileGroup.file} (${fileGroup.sections.length} sections)`);
+      logger.debug(`Analyzing file: ${fileGroup.file} (${fileGroup.sections.length} sections)`);
       try {
         const result = await this.analyzeFileChanges(fileGroup);
         results.push(result);
       } catch (error) {
         if (error instanceof Error) {
-          core.warning(`Error analyzing file ${fileGroup.file}: ${error.message}`);
+          logger.warning(`Error analyzing file ${fileGroup.file}: ${error.message}`);
         } else {
-          core.warning(`Unknown error analyzing file ${fileGroup.file}`);
+          logger.warning(`Unknown error analyzing file ${fileGroup.file}`);
         }
         
         // Add a default result with error message
@@ -179,8 +180,8 @@ export class LLMService {
       const jsonString = jsonMatch ? jsonMatch[0] : content;
       result = JSON.parse(jsonString) as { issues: ErrorHandlingIssue[], score: number };
     } catch (error) {
-      console.log('Failed to parse LLM response as JSON. Using empty result.');
-      console.log('Response content:', content);
+      logger.warning('Failed to parse LLM response as JSON. Using empty result.');
+      logger.debug(`Response content: ${content}`);
       result = { issues: [], score: 0 };
     }
     
@@ -243,8 +244,8 @@ export class LLMService {
         const jsonString = jsonMatch ? jsonMatch[0] : content;
         result = JSON.parse(jsonString) as { issues: ErrorHandlingIssue[], score: number };
       } catch (error) {
-        console.log('Failed to parse LLM response as JSON. Using empty result.');
-        console.log('Response content:', content);
+        logger.warning('Failed to parse LLM response as JSON. Using empty result.');
+        logger.debug(`Response content: ${content}`);
         result = { issues: [], score: 0 };
       }
       
@@ -256,9 +257,9 @@ export class LLMService {
       };
     } catch (error) {
       if (error instanceof Error) {
-        core.warning(`Error analyzing code with LLM: ${error.message}`);
+        logger.warning(`Error analyzing code with LLM: ${error.message}`);
       } else {
-        core.warning('Unknown error occurred during LLM analysis');
+        logger.warning('Unknown error occurred during LLM analysis');
       }
       
       // Return a default result in case of error

@@ -283,20 +283,29 @@ const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
 const diff_utils_1 = __nccwpck_require__(183);
 const llm_service_1 = __nccwpck_require__(9834);
+const logger_1 = __nccwpck_require__(6297);
 async function run() {
     var _a;
     try {
+        // Set logging level from input or default to INFO
+        const logLevelInput = core.getInput('log-level', { required: false }) || 'info';
+        const envLogLevel = process.env.LOG_LEVEL;
+        // Environment variable takes precedence over input
+        if (!envLogLevel) {
+            logger_1.logger.setLogLevel(logLevelInput);
+        }
+        logger_1.logger.debug(`Log level: ${logger_1.logger.getLogLevel()}`);
         let diff;
         // Check if a file path is provided as a command-line argument
         const diffPath = process.argv[2];
         if (diffPath) {
             // Local mode: Read diff from file
-            console.log(`Reading diff from file: ${diffPath}`);
+            logger_1.logger.info(`Reading diff from file: ${diffPath}`);
             diff = fs.readFileSync(path.resolve(diffPath), 'utf8');
         }
         else {
             // GitHub Actions mode
-            console.log('Running in GitHub Actions mode');
+            logger_1.logger.info('Running in GitHub Actions mode');
             let token = '';
             try {
                 // Try to get token from env or input
@@ -305,23 +314,23 @@ async function run() {
                     core.getInput('github-token', { required: false }); // GitHub Actions getInput
             }
             catch (error) {
-                core.warning('Failed to get github-token from inputs, using mock token for testing');
+                logger_1.logger.warning('Failed to get github-token from inputs, using mock token for testing');
             }
             // If no token is available, use a mock token for testing
             if (!token) {
                 token = 'mock-token-for-testing';
-                core.warning('Using mock token for testing. This will limit functionality.');
+                logger_1.logger.warning('Using mock token for testing. This will limit functionality.');
             }
             const context = github.context;
             if (context.eventName !== 'pull_request') {
-                core.info('This action is designed to work on pull requests');
-                core.info('Since we are not running on a PR, using sample diff for testing');
+                logger_1.logger.info('This action is designed to work on pull requests');
+                logger_1.logger.info('Since we are not running on a PR, using sample diff for testing');
                 try {
                     // Use a sample diff file if we're not in a PR context
                     const sampleDiffPath = path.join(__dirname, '..', '..', 'samples', 'axios.diff');
                     if (fs.existsSync(sampleDiffPath)) {
                         diff = fs.readFileSync(sampleDiffPath, 'utf8');
-                        core.info(`Using sample diff from ${sampleDiffPath} for testing`);
+                        logger_1.logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
                     }
                     else {
                         // Small sample diff for testing
@@ -336,11 +345,11 @@ index 123456..789012 100644
  
  /**
   * Read a configuration file`;
-                        core.info('Using inline sample diff for testing');
+                        logger_1.logger.info('Using inline sample diff for testing');
                     }
                 }
                 catch (error) {
-                    core.warning('Failed to load sample diff, using minimal test diff');
+                    logger_1.logger.warning('Failed to load sample diff, using minimal test diff');
                     diff = `diff --git a/test.js b/test.js
 index 123..456 100644
 --- a/test.js
@@ -358,13 +367,13 @@ index 123..456 100644
                     return;
                 }
                 const repo = context.repo;
-                core.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
+                logger_1.logger.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
                 const octokit = github.getOctokit(token);
                 // If we're running in GitHub Actions, we need to handle rate limiting and retries
-                core.info('Fetching PR diff from GitHub API...');
+                logger_1.logger.info('Fetching PR diff from GitHub API...');
                 try {
                     diff = await (0, diff_utils_1.getPullRequestDiff)(octokit, repo, pullNumber);
-                    core.info('Successfully fetched PR diff');
+                    logger_1.logger.info('Successfully fetched PR diff');
                 }
                 catch (error) {
                     if (error instanceof Error) {
@@ -380,7 +389,7 @@ index 123..456 100644
         // Parse the diff to find added code
         const addedCode = (0, diff_utils_1.parseAddedLines)(diff);
         // Output the results
-        console.log(`\nFound ${addedCode.length} sections of added code\n`);
+        logger_1.logger.info(`Found ${addedCode.length} sections of added code`);
         // Set output if running in GitHub Actions
         if (!diffPath) {
             core.setOutput('added-code', addedCode.length.toString());
@@ -391,15 +400,15 @@ index 123..456 100644
         let llmService = null;
         try {
             if (apiKey) {
-                llmService = new llm_service_1.LLMService(apiKey);
+                llmService = new llm_service_1.LLMService(apiKey, modelName);
             }
         }
         catch (error) {
             if (error instanceof Error) {
-                core.warning(`Failed to initialize LLM service: ${error.message}`);
+                logger_1.logger.warning(`Failed to initialize LLM service: ${error.message}`);
             }
             else {
-                core.warning('Unknown error initializing LLM service');
+                logger_1.logger.warning('Unknown error initializing LLM service');
             }
         }
         // Array to store analysis results
@@ -408,36 +417,35 @@ index 123..456 100644
         // Display each section found
         for (let index = 0; index < addedCode.length; index++) {
             const section = addedCode[index];
-            console.log(`Section ${index + 1}:`);
-            console.log(`File: ${section.file}`);
-            console.log(`Added Lines: ${section.addedLines.length}`);
+            logger_1.logger.debug(`Section ${index + 1}:`);
+            logger_1.logger.debug(`File: ${section.file}`);
+            logger_1.logger.debug(`Added Lines: ${section.addedLines.length}`);
             if (section.isModification) {
-                console.log(`Type: Modification to existing code`);
+                logger_1.logger.debug(`Type: Modification to existing code`);
             }
             else {
-                console.log(`Type: New code block`);
+                logger_1.logger.debug(`Type: New code block`);
             }
-            console.log('Context Before:');
+            logger_1.logger.debug('Context Before:');
             if (section.context.linesBefore.length === 0) {
-                console.log('  (none)');
+                logger_1.logger.debug('  (none)');
             }
             else {
-                section.context.linesBefore.forEach(line => console.log(`  ${line}`));
+                section.context.linesBefore.forEach(line => logger_1.logger.debug(`  ${line}`));
             }
-            console.log('Added Code:');
-            section.addedLines.forEach(line => console.log(`+ ${line}`));
-            console.log('Context After:');
+            logger_1.logger.debug('Added Code:');
+            section.addedLines.forEach(line => logger_1.logger.debug(`+ ${line}`));
+            logger_1.logger.debug('Context After:');
             if (section.context.linesAfter.length === 0) {
-                console.log('  (none)');
+                logger_1.logger.debug('  (none)');
             }
             else {
-                section.context.linesAfter.forEach(line => console.log(`  ${line}`));
+                section.context.linesAfter.forEach(line => logger_1.logger.debug(`  ${line}`));
             }
-            console.log('\n');
         }
         // Analyze using LLM if service is available
         if (llmService) {
-            console.log('\nAnalyzing code with LLM by file...');
+            logger_1.logger.info('Analyzing code with LLM by file...');
             try {
                 // Use the new file-based analysis approach
                 const fileResults = await llmService.analyzeByFile(addedCode);
@@ -445,51 +453,52 @@ index 123..456 100644
                 for (const result of fileResults) {
                     analysisResults.push(result);
                     totalScore += result.score;
-                    console.log(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
+                    logger_1.logger.info(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
                     if (result.issues.length === 0) {
-                        console.log('No error handling issues found.');
+                        logger_1.logger.info('No error handling issues found.');
                     }
                     else {
-                        console.log(`Found ${result.issues.length} potential issues:`);
+                        logger_1.logger.info(`Found ${result.issues.length} potential issues:`);
                         result.issues.forEach((issue, i) => {
-                            console.log(`\nIssue ${i + 1}:`);
-                            console.log(`Severity: ${issue.severity}`);
-                            console.log(`Description: ${issue.description}`);
-                            console.log(`Suggestion: ${issue.suggestion}`);
+                            logger_1.logger.info(`\nIssue ${i + 1}:`);
+                            logger_1.logger.info(`Severity: ${issue.severity}`);
+                            logger_1.logger.info(`Description: ${issue.description}`);
+                            logger_1.logger.info(`Suggestion: ${issue.suggestion}`);
                             if (issue.lineNumber) {
-                                console.log(`Line: ~${issue.lineNumber}`);
+                                logger_1.logger.info(`Line: ~${issue.lineNumber}`);
                             }
                         });
                     }
-                    console.log('\n');
                 }
             }
             catch (error) {
                 if (error instanceof Error) {
-                    core.warning(`Error performing LLM analysis: ${error.message}`);
+                    logger_1.logger.warning(`Error performing LLM analysis: ${error.message}`);
                 }
                 else {
-                    core.warning('Unknown error during LLM analysis');
+                    logger_1.logger.warning('Unknown error during LLM analysis');
                 }
             }
         }
         else {
-            console.log('\nLLM analysis not available. Skipping code analysis.');
+            logger_1.logger.info('LLM analysis not available. Skipping code analysis.');
         }
         // Set outputs for GitHub Actions
         if (!diffPath && llmService && analysisResults.length > 0) {
             core.setOutput('analysis-results', JSON.stringify(analysisResults));
             const averageScore = totalScore / analysisResults.length;
             core.setOutput('error-score', averageScore.toFixed(2));
-            console.log(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
+            logger_1.logger.info(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
         }
     }
     catch (error) {
         if (error instanceof Error) {
             core.setFailed(`Action failed with error: ${error.message}`);
+            logger_1.logger.error(`Action failed with error: ${error.message}`);
         }
         else {
             core.setFailed(`Action failed with unknown error`);
+            logger_1.logger.error(`Action failed with unknown error`);
         }
     }
 }
@@ -543,6 +552,7 @@ exports.LLMService = void 0;
  */
 const openai_1 = __nccwpck_require__(47);
 const core = __importStar(__nccwpck_require__(2186));
+const logger_1 = __nccwpck_require__(6297);
 /**
  * Class to handle LLM services for code analysis
  */
@@ -558,7 +568,7 @@ class LLMService {
         });
         // Use the specified model or get from input, fallback to gpt-3.5-turbo
         this.modelName = modelName || process.env.LLM_MODEL || core.getInput('llm-model', { required: false }) || 'gpt-3.5-turbo';
-        console.log(`Using LLM model: ${this.modelName}`);
+        logger_1.logger.info(`Using LLM model: ${this.modelName}`);
     }
     /**
      * Analyzes code for error handling issues by file
@@ -569,20 +579,20 @@ class LLMService {
         // Group sections by file
         const fileGroups = this.groupSectionsByFile(sections);
         const results = [];
-        console.log(`Grouped ${sections.length} sections into ${fileGroups.length} files for analysis`);
+        logger_1.logger.debug(`Grouped ${sections.length} sections into ${fileGroups.length} files for analysis`);
         // Analyze each file
         for (const fileGroup of fileGroups) {
-            console.log(`Analyzing file: ${fileGroup.file} (${fileGroup.sections.length} sections)`);
+            logger_1.logger.debug(`Analyzing file: ${fileGroup.file} (${fileGroup.sections.length} sections)`);
             try {
                 const result = await this.analyzeFileChanges(fileGroup);
                 results.push(result);
             }
             catch (error) {
                 if (error instanceof Error) {
-                    core.warning(`Error analyzing file ${fileGroup.file}: ${error.message}`);
+                    logger_1.logger.warning(`Error analyzing file ${fileGroup.file}: ${error.message}`);
                 }
                 else {
-                    core.warning(`Unknown error analyzing file ${fileGroup.file}`);
+                    logger_1.logger.warning(`Unknown error analyzing file ${fileGroup.file}`);
                 }
                 // Add a default result with error message
                 results.push({
@@ -671,8 +681,8 @@ class LLMService {
             result = JSON.parse(jsonString);
         }
         catch (error) {
-            console.log('Failed to parse LLM response as JSON. Using empty result.');
-            console.log('Response content:', content);
+            logger_1.logger.warning('Failed to parse LLM response as JSON. Using empty result.');
+            logger_1.logger.debug(`Response content: ${content}`);
             result = { issues: [], score: 0 };
         }
         // Return the structured analysis result
@@ -729,8 +739,8 @@ class LLMService {
                 result = JSON.parse(jsonString);
             }
             catch (error) {
-                console.log('Failed to parse LLM response as JSON. Using empty result.');
-                console.log('Response content:', content);
+                logger_1.logger.warning('Failed to parse LLM response as JSON. Using empty result.');
+                logger_1.logger.debug(`Response content: ${content}`);
                 result = { issues: [], score: 0 };
             }
             // Return the structured analysis result
@@ -742,10 +752,10 @@ class LLMService {
         }
         catch (error) {
             if (error instanceof Error) {
-                core.warning(`Error analyzing code with LLM: ${error.message}`);
+                logger_1.logger.warning(`Error analyzing code with LLM: ${error.message}`);
             }
             else {
-                core.warning('Unknown error occurred during LLM analysis');
+                logger_1.logger.warning('Unknown error occurred during LLM analysis');
             }
             // Return a default result in case of error
             return {
@@ -870,6 +880,153 @@ Example response format:
 }
 exports.LLMService = LLMService;
 //# sourceMappingURL=llm-service.js.map
+
+/***/ }),
+
+/***/ 6297:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.logger = exports.Logger = exports.LogLevel = void 0;
+const core = __importStar(__nccwpck_require__(2186));
+/**
+ * Log levels enum
+ */
+var LogLevel;
+(function (LogLevel) {
+    LogLevel[LogLevel["DEBUG"] = 0] = "DEBUG";
+    LogLevel[LogLevel["INFO"] = 1] = "INFO";
+    LogLevel[LogLevel["WARNING"] = 2] = "WARNING";
+    LogLevel[LogLevel["ERROR"] = 3] = "ERROR";
+    LogLevel[LogLevel["NONE"] = 4] = "NONE";
+})(LogLevel || (exports.LogLevel = LogLevel = {}));
+/**
+ * Convert string log level to enum
+ */
+function parseLogLevel(level) {
+    switch (level.toLowerCase()) {
+        case 'debug': return LogLevel.DEBUG;
+        case 'info': return LogLevel.INFO;
+        case 'warning': return LogLevel.WARNING;
+        case 'error': return LogLevel.ERROR;
+        case 'none': return LogLevel.NONE;
+        default: return LogLevel.INFO;
+    }
+}
+/**
+ * Logger class for consistent logging throughout the application
+ */
+class Logger {
+    constructor() {
+        this.logLevel = LogLevel.INFO;
+        // Set default log level from environment variable if present
+        const envLogLevel = process.env.LOG_LEVEL;
+        if (envLogLevel) {
+            this.logLevel = parseLogLevel(envLogLevel);
+        }
+    }
+    /**
+     * Get the logger instance (singleton)
+     */
+    static getInstance() {
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
+        }
+        return Logger.instance;
+    }
+    /**
+     * Set the log level
+     */
+    setLogLevel(level) {
+        if (typeof level === 'string') {
+            this.logLevel = parseLogLevel(level);
+        }
+        else {
+            this.logLevel = level;
+        }
+    }
+    /**
+     * Get the current log level
+     */
+    getLogLevel() {
+        return this.logLevel;
+    }
+    /**
+     * Log a debug message
+     */
+    debug(message) {
+        if (this.logLevel <= LogLevel.DEBUG) {
+            core.debug(message);
+            console.log(`[DEBUG] ${message}`);
+        }
+    }
+    /**
+     * Log an info message
+     */
+    info(message) {
+        if (this.logLevel <= LogLevel.INFO) {
+            core.info(message);
+            console.log(`[INFO] ${message}`);
+        }
+    }
+    /**
+     * Log a warning message
+     */
+    warning(message) {
+        if (this.logLevel <= LogLevel.WARNING) {
+            core.warning(message);
+            console.warn(`[WARNING] ${message}`);
+        }
+    }
+    /**
+     * Log an error message
+     */
+    error(message) {
+        if (this.logLevel <= LogLevel.ERROR) {
+            core.error(message);
+            console.error(`[ERROR] ${message}`);
+        }
+    }
+}
+exports.Logger = Logger;
+// Export a default logger instance
+exports.logger = Logger.getInstance();
+//# sourceMappingURL=logger.js.map
 
 /***/ }),
 

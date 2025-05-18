@@ -4,9 +4,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getPullRequestDiff, parseAddedLines } from './diff-utils';
 import { LLMService, LLMAnalysisResult } from './llm-service';
+import { logger, LogLevel } from './logger';
 
 async function run(): Promise<void> {
   try {
+    // Set logging level from input or default to INFO
+    const logLevelInput = core.getInput('log-level', { required: false }) || 'info';
+    const envLogLevel = process.env.LOG_LEVEL;
+    
+    // Environment variable takes precedence over input
+    if (!envLogLevel) {
+      logger.setLogLevel(logLevelInput);
+    }
+    
+    logger.debug(`Log level: ${logger.getLogLevel()}`);
+    
     let diff: string;
     
     // Check if a file path is provided as a command-line argument
@@ -14,11 +26,11 @@ async function run(): Promise<void> {
     
     if (diffPath) {
       // Local mode: Read diff from file
-      console.log(`Reading diff from file: ${diffPath}`);
+      logger.info(`Reading diff from file: ${diffPath}`);
       diff = fs.readFileSync(path.resolve(diffPath), 'utf8');
     } else {
       // GitHub Actions mode
-      console.log('Running in GitHub Actions mode');
+      logger.info('Running in GitHub Actions mode');
       let token = '';
       
       try {
@@ -27,27 +39,27 @@ async function run(): Promise<void> {
                process.env.INPUT_GITHUB_TOKEN || // GitHub Actions env convention
                core.getInput('github-token', { required: false }); // GitHub Actions getInput
       } catch (error) {
-        core.warning('Failed to get github-token from inputs, using mock token for testing');
+        logger.warning('Failed to get github-token from inputs, using mock token for testing');
       }
       
       // If no token is available, use a mock token for testing
       if (!token) {
         token = 'mock-token-for-testing';
-        core.warning('Using mock token for testing. This will limit functionality.');
+        logger.warning('Using mock token for testing. This will limit functionality.');
       }
       
       const context = github.context;
       
       if (context.eventName !== 'pull_request') {
-        core.info('This action is designed to work on pull requests');
-        core.info('Since we are not running on a PR, using sample diff for testing');
+        logger.info('This action is designed to work on pull requests');
+        logger.info('Since we are not running on a PR, using sample diff for testing');
         
         try {
           // Use a sample diff file if we're not in a PR context
           const sampleDiffPath = path.join(__dirname, '..', '..', 'samples', 'axios.diff');
           if (fs.existsSync(sampleDiffPath)) {
             diff = fs.readFileSync(sampleDiffPath, 'utf8');
-            core.info(`Using sample diff from ${sampleDiffPath} for testing`);
+            logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
           } else {
             // Small sample diff for testing
             diff = `diff --git a/src/sample.js b/src/sample.js
@@ -61,10 +73,10 @@ index 123456..789012 100644
  
  /**
   * Read a configuration file`;
-            core.info('Using inline sample diff for testing');
+            logger.info('Using inline sample diff for testing');
           }
         } catch (error) {
-          core.warning('Failed to load sample diff, using minimal test diff');
+          logger.warning('Failed to load sample diff, using minimal test diff');
           diff = `diff --git a/test.js b/test.js
 index 123..456 100644
 --- a/test.js
@@ -82,15 +94,15 @@ index 123..456 100644
         }
         
         const repo = context.repo;
-        core.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
+        logger.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
         
         const octokit = github.getOctokit(token);
         
         // If we're running in GitHub Actions, we need to handle rate limiting and retries
-        core.info('Fetching PR diff from GitHub API...');
+        logger.info('Fetching PR diff from GitHub API...');
         try {
           diff = await getPullRequestDiff(octokit, repo, pullNumber);
-          core.info('Successfully fetched PR diff');
+          logger.info('Successfully fetched PR diff');
         } catch (error) {
           if (error instanceof Error) {
             core.setFailed(`Failed to fetch PR diff: ${error.message}`);
@@ -106,7 +118,7 @@ index 123..456 100644
     const addedCode = parseAddedLines(diff);
     
     // Output the results
-    console.log(`\nFound ${addedCode.length} sections of added code\n`);
+    logger.info(`Found ${addedCode.length} sections of added code`);
     
     // Set output if running in GitHub Actions
     if (!diffPath) {
@@ -121,13 +133,13 @@ index 123..456 100644
     
     try {
       if (apiKey) {
-        llmService = new LLMService(apiKey);
+        llmService = new LLMService(apiKey, modelName);
       }
     } catch (error) {
       if (error instanceof Error) {
-        core.warning(`Failed to initialize LLM service: ${error.message}`);
+        logger.warning(`Failed to initialize LLM service: ${error.message}`);
       } else {
-        core.warning('Unknown error initializing LLM service');
+        logger.warning('Unknown error initializing LLM service');
       }
     }
     
@@ -138,39 +150,37 @@ index 123..456 100644
     // Display each section found
     for (let index = 0; index < addedCode.length; index++) {
       const section = addedCode[index];
-      console.log(`Section ${index + 1}:`);
-      console.log(`File: ${section.file}`);
-      console.log(`Added Lines: ${section.addedLines.length}`);
+      logger.debug(`Section ${index + 1}:`);
+      logger.debug(`File: ${section.file}`);
+      logger.debug(`Added Lines: ${section.addedLines.length}`);
       
       if (section.isModification) {
-        console.log(`Type: Modification to existing code`);
+        logger.debug(`Type: Modification to existing code`);
       } else {
-        console.log(`Type: New code block`);
+        logger.debug(`Type: New code block`);
       }
       
-      console.log('Context Before:');
+      logger.debug('Context Before:');
       if (section.context.linesBefore.length === 0) {
-        console.log('  (none)');
+        logger.debug('  (none)');
       } else {
-        section.context.linesBefore.forEach(line => console.log(`  ${line}`));
+        section.context.linesBefore.forEach(line => logger.debug(`  ${line}`));
       }
       
-      console.log('Added Code:');
-      section.addedLines.forEach(line => console.log(`+ ${line}`));
+      logger.debug('Added Code:');
+      section.addedLines.forEach(line => logger.debug(`+ ${line}`));
       
-      console.log('Context After:');
+      logger.debug('Context After:');
       if (section.context.linesAfter.length === 0) {
-        console.log('  (none)');
+        logger.debug('  (none)');
       } else {
-        section.context.linesAfter.forEach(line => console.log(`  ${line}`));
+        section.context.linesAfter.forEach(line => logger.debug(`  ${line}`));
       }
-      
-      console.log('\n');
     }
     
     // Analyze using LLM if service is available
     if (llmService) {
-      console.log('\nAnalyzing code with LLM by file...');
+      logger.info('Analyzing code with LLM by file...');
       try {
         // Use the new file-based analysis approach
         const fileResults = await llmService.analyzeByFile(addedCode);
@@ -180,36 +190,34 @@ index 123..456 100644
           analysisResults.push(result);
           totalScore += result.score;
           
-          console.log(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
+          logger.info(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
           
           if (result.issues.length === 0) {
-            console.log('No error handling issues found.');
+            logger.info('No error handling issues found.');
           } else {
-            console.log(`Found ${result.issues.length} potential issues:`);
+            logger.info(`Found ${result.issues.length} potential issues:`);
             
             result.issues.forEach((issue, i) => {
-              console.log(`\nIssue ${i + 1}:`);
-              console.log(`Severity: ${issue.severity}`);
-              console.log(`Description: ${issue.description}`);
-              console.log(`Suggestion: ${issue.suggestion}`);
+              logger.info(`\nIssue ${i + 1}:`);
+              logger.info(`Severity: ${issue.severity}`);
+              logger.info(`Description: ${issue.description}`);
+              logger.info(`Suggestion: ${issue.suggestion}`);
               if (issue.lineNumber) {
-                console.log(`Line: ~${issue.lineNumber}`);
+                logger.info(`Line: ~${issue.lineNumber}`);
               }
             });
           }
-          
-          console.log('\n');
         }
         
       } catch (error) {
         if (error instanceof Error) {
-          core.warning(`Error performing LLM analysis: ${error.message}`);
+          logger.warning(`Error performing LLM analysis: ${error.message}`);
         } else {
-          core.warning('Unknown error during LLM analysis');
+          logger.warning('Unknown error during LLM analysis');
         }
       }
     } else {
-      console.log('\nLLM analysis not available. Skipping code analysis.');
+      logger.info('LLM analysis not available. Skipping code analysis.');
     }
     
     // Set outputs for GitHub Actions
@@ -218,14 +226,16 @@ index 123..456 100644
       const averageScore = totalScore / analysisResults.length;
       core.setOutput('error-score', averageScore.toFixed(2));
       
-      console.log(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
+      logger.info(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
     }
     
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(`Action failed with error: ${error.message}`);
+      logger.error(`Action failed with error: ${error.message}`);
     } else {
       core.setFailed(`Action failed with unknown error`);
+      logger.error(`Action failed with unknown error`);
     }
   }
 }

@@ -18,6 +18,10 @@ inputs:
     description: 'LLM model to use for analysis (e.g., gpt-4, gpt-3.5-turbo)'
     required: false
     default: 'gpt-3.5-turbo'
+  log-level:
+    description: 'Logging level (debug, info, warning, error, none)'
+    required: false
+    default: 'info'
 
 outputs:
   added-code:
