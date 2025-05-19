@@ -234,8 +234,8 @@ async function run(): Promise<void> {
     
     // Set outputs for GitHub Actions
     if (!diffPath && llmService && analysisResults.length > 0) {
-      core.setOutput('analysis-results', JSON.stringify(analysisResults));
       const averageScore = totalScore / analysisResults.length;
+      core.setOutput('analysis-results', JSON.stringify(analysisResults));
       core.setOutput('error-score', averageScore.toFixed(2));
       
       logger.info(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
@@ -250,17 +250,6 @@ async function run(): Promise<void> {
       logger.error(`Action failed with unknown error`);
     }
   }
-}
-
-// Helper function to provide minimal sample diff
-function getMinimalSampleDiff(): string {
-  return `diff --git a/test.js b/test.js
-index 123..456 100644
---- a/test.js
-+++ b/test.js
-@@ -1,1 +1,2 @@
-// Test file
-+console.log('Hello world');`;
 }
 
 run(); 

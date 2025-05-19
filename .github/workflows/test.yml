@@ -46,7 +46,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          llm-model: 'gpt-3.5-turbo'
           ignore-patterns: '.diff,.yml,.js'
       
       - name: Log results

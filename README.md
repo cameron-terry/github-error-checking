@@ -63,7 +63,7 @@ The action will automatically use this secret to authenticate with OpenAI's API 
 
 ## Configuration
 
-The action accepts the following inputs:
+### Input
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
@@ -74,6 +74,14 @@ The action accepts the following inputs:
 | `log-level` | Logging level (debug, info, warning, error, none) | No | `info` |
 | `enable-file-filtering` | Enable filtering out common generated/config files | No | `true` |
 | `ignore-patterns` | Additional file patterns to ignore (comma-separated) | No | `''` |
+
+### Output
+
+| Output | Description |
+|--------|-------------|
+`added-code` | Number of code sections found for analysis
+`analysis-results` | JSON string containing analysis results with issues and suggestions
+`error-score` | Average score (0-10) for error handling quality across all sections
 
 ### File Filtering
 
@@ -109,28 +117,7 @@ export IGNORE_PATTERNS=vendor/,generated/
 node lib/src/index.js samples/axios.diff
 ```
 
-### Logging Levels
-
-The action supports different logging levels to control the verbosity of the output:
-
-- `debug`: Shows all messages, including detailed information about code sections analyzed
-- `info`: Shows general progress and analysis results (default)
-- `warning`: Shows only warnings and errors
-- `error`: Shows only errors
-- `none`: Suppresses all logs (only outputs will be set)
-
-You can set the log level in your workflow file:
-
-```yaml
-- name: Check for error handling
-  uses: cameronterry/github-diff-error-checking@v1
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-    openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-    log-level: info  # Set to debug for more detailed output
-```
-
-When running locally, you can also set the log level via environment variable:
+You can also set the log level via environment variable:
 
 ```bash
 export LOG_LEVEL=debug
@@ -144,6 +131,55 @@ node lib/src/index.js samples/axios.diff
 | `added-code` | Number of code sections found for analysis |
 | `analysis-results` | JSON array of analysis results with issues and suggestions |
 | `error-score` | Average score (0-10) for error handling quality across all sections |
+
+## Analysis Results Format
+
+The action outputs a detailed JSON array of analysis results in the `analysis-results` output. Each item in the array represents a file that was analyzed and includes:
+
+- `file`: Path to the analyzed file
+- `issues`: Array of identified issues, each containing:
+  - `description`: Description of the error handling issue
+  - `suggestion`: Recommended fix for the issue
+  - `severity`: Issue severity level ("high", "medium", or "low")
+  - `lineNumber`: Line number where the issue was found
+- `score`: Overall error handling score for the file (0-10)
+
+### Example Analysis Results
+
+```json
+[
+  {
+    "file": "src/diff-utils.ts",
+    "issues": [
+      {
+        "description": "Missing exception handling for API call",
+        "suggestion": "Wrap the API call with a try/catch block to properly handle potential errors",
+        "severity": "high",
+        "lineNumber": 6
+      },
+      {
+        "description": "Improper error propagation",
+        "suggestion": "Instead of throwing a generic error message, handle specific error types and messages for better debugging and error tracing",
+        "severity": "medium",
+        "lineNumber": 18
+      }
+    ],
+    "score": 7
+  },
+  {
+    "file": "src/file-filters.ts",
+    "issues": [
+      {
+        "description": "Missing exception handling for core.getInput in getAdditionalIgnorePatterns function",
+        "suggestion": "Add try/catch block around core.getInput(ignore-patterns, { required: false }) to handle potential errors",
+        "severity": "medium",
+        "lineNumber": 36
+      }
+    ],
+    "score": 7
+  }
+]
+```
 
 ## Development
 
