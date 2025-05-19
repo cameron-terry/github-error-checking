@@ -1,4 +1,4 @@
-name: 'GitHub Error Checking'
+name: 'GitHub Diff Error Checking'
 description: 'Analyzes pull requests for proper error handling in added code'
 author: 'cameronterry'
 

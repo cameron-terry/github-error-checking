@@ -1,4 +1,4 @@
-# GitHub Error Checking
+# GitHub Diff Error Checking
 
 A GitHub Actions tool that analyzes pull requests for proper error handling in added code.
 
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Check for error handling
-        uses: cameronterry/github-error-checking@v1
+        uses: cameronterry/github-diff-error-checking@v1
         id: error-check
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -94,7 +94,7 @@ You can:
 
 ```yaml
 - name: Check for error handling
-  uses: cameronterry/github-error-checking@v1
+  uses: cameronterry/github-diff-error-checking@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -123,7 +123,7 @@ You can set the log level in your workflow file:
 
 ```yaml
 - name: Check for error handling
-  uses: cameronterry/github-error-checking@v1
+  uses: cameronterry/github-diff-error-checking@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     openai-api-key: ${{ secrets.OPENAI_API_KEY }}
