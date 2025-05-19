@@ -67,38 +67,7 @@ async function run(): Promise<void> {
       
       const context = github.context;
       
-      if (context.eventName !== 'pull_request') {
-        logger.info('This action is designed to work on pull requests');
-        logger.info('Since we are not running on a PR, using sample diff for testing');
-        
-        try {
-          // Use a sample diff file if we're not in a PR context
-          const sampleDiffPath = path.join(__dirname, '..', '..', 'samples', 'axios.diff');
-          
-          try {
-            if (fs.existsSync(sampleDiffPath)) {
-              try {
-                diff = fs.readFileSync(sampleDiffPath, 'utf8');
-                logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
-              } catch (readErr) {
-                logger.warning(`Failed to read sample diff file: ${readErr instanceof Error ? readErr.message : 'Unknown error'}`);
-                // Fall back to minimal diff
-                diff = getMinimalSampleDiff();
-              }
-            } else {
-              // Small sample diff for testing
-              logger.info('Sample diff file not found, using inline sample diff');
-              diff = getMinimalSampleDiff();
-            }
-          } catch (fsError) {
-            logger.warning(`Error checking sample diff file: ${fsError instanceof Error ? fsError.message : 'Unknown error'}`);
-            diff = getMinimalSampleDiff();
-          }
-        } catch (error) {
-          logger.warning(`Error accessing sample diff: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          diff = getMinimalSampleDiff();
-        }
-      } else {
+      if (context.eventName === 'pull_request') {
         // This is a real PR, get the pull number
         const pullNumber = context.payload.pull_request?.number;
         if (!pullNumber) {
@@ -111,11 +80,8 @@ async function run(): Promise<void> {
         
         const octokit = github.getOctokit(token);
         
-        // If we're running in GitHub Actions, we need to handle rate limiting and retries
-        logger.info('Fetching PR diff from GitHub API...');
         try {
           diff = await getPullRequestDiff(octokit as unknown as ActionsOctokit, repo, pullNumber);
-          logger.info('Successfully fetched PR diff');
         } catch (error) {
           if (error instanceof Error) {
             core.setFailed(`Failed to fetch PR diff: ${error.message}`);
@@ -124,6 +90,9 @@ async function run(): Promise<void> {
           }
           return;
         }
+      } else {
+        logger.info('Not a pull request -- exiting');
+        return;
       }
     }
     
