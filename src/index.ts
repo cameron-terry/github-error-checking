@@ -234,8 +234,24 @@ async function run(): Promise<void> {
     
     // Set outputs for GitHub Actions
     if (!diffPath && llmService && analysisResults.length > 0) {
+      // Enhance analysis results with the corresponding diff sections
+      const enhancedResults = analysisResults.map(result => {
+        // Find all sections for this file
+        const fileSections = addedCode.filter(section => section.file === result.file);
+        
+        return {
+          ...result,
+          diff_sections: fileSections.map(section => ({
+            added_lines: section.addedLines,
+            is_modification: section.isModification || false,
+            context_before: section.context.linesBefore,
+            context_after: section.context.linesAfter
+          }))
+        };
+      });
+      
       const averageScore = totalScore / analysisResults.length;
-      core.setOutput('analysis-results', JSON.stringify(analysisResults));
+      core.setOutput('analysis-results', JSON.stringify(enhancedResults));
       core.setOutput('error-score', averageScore.toFixed(2));
       
       logger.info(`Overall error handling score: ${averageScore.toFixed(2)}/10`);

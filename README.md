@@ -143,6 +143,11 @@ The action outputs a detailed JSON array of analysis results in the `analysis-re
   - `severity`: Issue severity level ("high", "medium", or "low")
   - `lineNumber`: Line number where the issue was found
 - `score`: Overall error handling score for the file (0-10)
+- `diff_sections`: Array of code sections that were added in the PR, each containing:
+  - `added_lines`: Array of code lines that were added
+  - `is_modification`: Boolean indicating if this is a modification to existing code
+  - `context_before`: Array of code lines before the added section for context
+  - `context_after`: Array of code lines after the added section for context
 
 ### Example Analysis Results
 
@@ -164,7 +169,35 @@ The action outputs a detailed JSON array of analysis results in the `analysis-re
         "lineNumber": 18
       }
     ],
-    "score": 7
+    "score": 7,
+    "diff_sections": [
+      {
+        "added_lines": [
+          "  // Use the rest.pulls API that we know works in GitHub Actions",
+          "  try {",
+          "    const response = await octokit.rest.pulls.get({",
+          "      owner: repo.owner,",
+          "      repo: repo.repo,",
+          "      pull_number: pullNumber,",
+          "      mediaType: {",
+          "        format: 'diff'",
+          "      }",
+          "    });"
+        ],
+        "is_modification": false,
+        "context_before": [
+          "export async function getPullRequestDiff(",
+          "  octokit: ActionsOctokit,", 
+          "  repo: RepoInfo,", 
+          "  pullNumber: number"
+        ],
+        "context_after": [
+          "      ",
+          "      logger.info('Successfully fetched PR diff');",
+          "      return response.data as unknown as string;"
+        ]
+      }
+    ]
   },
   {
     "file": "src/file-filters.ts",
@@ -176,7 +209,25 @@ The action outputs a detailed JSON array of analysis results in the `analysis-re
         "lineNumber": 36
       }
     ],
-    "score": 7
+    "score": 7,
+    "diff_sections": [
+      {
+        "added_lines": [
+          "  const patterns = core.getInput('ignore-patterns', { required: false }) || '';",
+          "  logger.debug(`Additional ignore patterns: ${patterns}`);"
+        ],
+        "is_modification": false,
+        "context_before": [
+          "export function getAdditionalIgnorePatterns(): string[] {",
+          "  // Check environment variable first"
+        ],
+        "context_after": [
+          "  ",
+          "  if (!patterns) {",
+          "    return [];"
+        ]
+      }
+    ]
   }
 ]
 ```
