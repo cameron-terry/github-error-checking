@@ -2,12 +2,11 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getPullRequestDiff, parseAddedLines } from './diff-utils';
+import { getPullRequestDiff, parseAddedLines, ActionsOctokit } from './diff-utils';
 import { LLMService, LLMAnalysisResult } from './llm-service';
 import { logger, LogLevel } from './logger';
 import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
 import { validateAllInputs, validateRequiredInput } from './validate-inputs';
-import { Octokit } from '@octokit/rest';
 
 async function run(): Promise<void> {
   try {
@@ -109,7 +108,7 @@ async function run(): Promise<void> {
         // If we're running in GitHub Actions, we need to handle rate limiting and retries
         logger.info('Fetching PR diff from GitHub API...');
         try {
-          diff = await getPullRequestDiff(octokit as unknown as Octokit, repo, pullNumber);
+          diff = await getPullRequestDiff(octokit as unknown as ActionsOctokit, repo, pullNumber);
           logger.info('Successfully fetched PR diff');
         } catch (error) {
           if (error instanceof Error) {
