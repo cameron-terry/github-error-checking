@@ -74,18 +74,24 @@ async function run(): Promise<void> {
         try {
           // Use a sample diff file if we're not in a PR context
           const sampleDiffPath = path.join(__dirname, '..', '..', 'samples', 'axios.diff');
-          if (fs.existsSync(sampleDiffPath)) {
-            try {
-              diff = fs.readFileSync(sampleDiffPath, 'utf8');
-              logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
-            } catch (readErr) {
-              logger.warning(`Failed to read sample diff file: ${readErr instanceof Error ? readErr.message : 'Unknown error'}`);
-              // Fall back to minimal diff
+          
+          try {
+            if (fs.existsSync(sampleDiffPath)) {
+              try {
+                diff = fs.readFileSync(sampleDiffPath, 'utf8');
+                logger.info(`Using sample diff from ${sampleDiffPath} for testing`);
+              } catch (readErr) {
+                logger.warning(`Failed to read sample diff file: ${readErr instanceof Error ? readErr.message : 'Unknown error'}`);
+                // Fall back to minimal diff
+                diff = getMinimalSampleDiff();
+              }
+            } else {
+              // Small sample diff for testing
+              logger.info('Sample diff file not found, using inline sample diff');
               diff = getMinimalSampleDiff();
             }
-          } else {
-            // Small sample diff for testing
-            logger.info('Sample diff file not found, using inline sample diff');
+          } catch (fsError) {
+            logger.warning(`Error checking sample diff file: ${fsError instanceof Error ? fsError.message : 'Unknown error'}`);
             diff = getMinimalSampleDiff();
           }
         } catch (error) {
@@ -153,6 +159,13 @@ async function run(): Promise<void> {
     
     let llmService: LLMService | null = null;
     
+    // Validate inputs before initializing LLM service
+    if (!apiKey) {
+      logger.warning('No OpenAI API key provided. LLM analysis will be skipped.');
+    } else if (!modelName) {
+      logger.warning('No model name provided. Using default model gpt-4.');
+    }
+    
     try {
       if (apiKey) {
         try {
@@ -160,8 +173,6 @@ async function run(): Promise<void> {
         } catch (llmErr) {
           logger.warning(`Failed to initialize LLM service: ${llmErr instanceof Error ? llmErr.message : 'Unknown error'}`);
         }
-      } else {
-        logger.warning('No OpenAI API key provided. LLM analysis will be skipped.');
       }
     } catch (error) {
       logger.warning(`Error during LLM setup: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -207,7 +218,13 @@ async function run(): Promise<void> {
       logger.info('Analyzing code with LLM by file...');
       try {
         // Use the new file-based analysis approach
-        const fileResults = await llmService.analyzeByFile(addedCode);
+        let fileResults;
+        try {
+          fileResults = await llmService.analyzeByFile(addedCode);
+        } catch (analysisError) {
+          logger.error(`Error during LLM analysis: ${analysisError instanceof Error ? analysisError.message : 'Unknown error'}`);
+          return;
+        }
         
         // Process and display each file's results
         for (const result of fileResults) {

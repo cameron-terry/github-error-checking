@@ -67,6 +67,8 @@ function getAdditionalIgnorePatterns(): string[] {
     }
   } catch (error) {
     // Input might not be available if not running in GitHub Actions
+    // Log the error for debugging purposes
+    console.error('Error getting ignore-patterns input:', error instanceof Error ? error.message : 'Unknown error');
   }
   
   // Try environment variable as fallback
@@ -127,6 +129,8 @@ export function isFileFilteringEnabled(): boolean {
     }
   } catch (error) {
     // Input might not be available if not running in GitHub Actions
+    // Log the error for debugging purposes
+    console.error('Error getting enable-file-filtering input:', error instanceof Error ? error.message : 'Unknown error');
   }
   
   // Try environment variable as fallback

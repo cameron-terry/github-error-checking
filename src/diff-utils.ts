@@ -107,7 +107,7 @@ export async function getPullRequestDiff(
       return response.data as unknown as string;
     } catch (apiErr) {
       logger.warning(`API error: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
-      throw new Error(`Failed to fetch PR diff: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
+      throw apiErr; // Rethrow the original error to maintain error context
     }
   } catch (error) {
     if (error instanceof Error) {

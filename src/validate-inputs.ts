@@ -31,7 +31,14 @@ export function validateRequiredInput(name: string): boolean {
 export function validateLLMModel(): boolean {
   try {
     const supportedModels = ['gpt-4', 'gpt-3.5-turbo', 'gpt-4-turbo'];
-    const modelName = core.getInput('llm-model') || 'gpt-3.5-turbo';
+    let modelName;
+    
+    try {
+      modelName = core.getInput('llm-model') || 'gpt-3.5-turbo';
+    } catch (inputError) {
+      logger.warning(`Error getting llm-model input: ${inputError instanceof Error ? inputError.message : 'Unknown error'}`);
+      modelName = 'gpt-3.5-turbo'; // Default if input retrieval fails
+    }
     
     if (!supportedModels.includes(modelName)) {
       logger.warning(`LLM model '${modelName}' is not in the list of supported models: ${supportedModels.join(', ')}`);
@@ -52,7 +59,14 @@ export function validateLLMModel(): boolean {
 export function validateLogLevel(): boolean {
   try {
     const supportedLevels = ['debug', 'info', 'warning', 'error', 'none'];
-    const logLevel = core.getInput('log-level') || 'info';
+    let logLevel;
+    
+    try {
+      logLevel = core.getInput('log-level') || 'info';
+    } catch (inputError) {
+      logger.warning(`Error getting log-level input: ${inputError instanceof Error ? inputError.message : 'Unknown error'}`);
+      logLevel = 'info'; // Default if input retrieval fails
+    }
     
     if (!supportedLevels.includes(logLevel.toLowerCase())) {
       logger.warning(`Log level '${logLevel}' is not in the list of supported levels: ${supportedLevels.join(', ')}`);
@@ -72,7 +86,15 @@ export function validateLogLevel(): boolean {
  */
 export function validateFileFiltering(): boolean {
   try {
-    const filterValue = core.getInput('enable-file-filtering') || 'true';
+    let filterValue;
+    
+    try {
+      filterValue = core.getInput('enable-file-filtering') || 'true';
+    } catch (inputError) {
+      logger.warning(`Error getting enable-file-filtering input: ${inputError instanceof Error ? inputError.message : 'Unknown error'}`);
+      filterValue = 'true'; // Default if input retrieval fails
+    }
+    
     if (filterValue !== 'true' && filterValue !== 'false') {
       logger.warning(`File filtering input '${filterValue}' is not a valid boolean value (true/false)`);
       logger.info(`Falling back to default value 'true'`);
@@ -91,7 +113,14 @@ export function validateFileFiltering(): boolean {
  */
 export function validateIgnorePatterns(): boolean {
   try {
-    const patterns = core.getInput('ignore-patterns') || '';
+    let patterns;
+    
+    try {
+      patterns = core.getInput('ignore-patterns') || '';
+    } catch (inputError) {
+      logger.warning(`Error getting ignore-patterns input: ${inputError instanceof Error ? inputError.message : 'Unknown error'}`);
+      patterns = ''; // Default if input retrieval fails
+    }
     
     // Empty string is valid (no additional patterns)
     if (!patterns) {

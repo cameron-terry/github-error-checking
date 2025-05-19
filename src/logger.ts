@@ -60,7 +60,13 @@ export class Logger {
     // Set default log level from environment variable if present
     const envLogLevel = process.env.LOG_LEVEL;
     if (envLogLevel) {
-      this.logLevel = parseLogLevel(envLogLevel);
+      try {
+        this.logLevel = parseLogLevel(envLogLevel);
+      } catch (error) {
+        console.error(`Error parsing log level: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Use default log level if parsing fails
+        this.logLevel = LogLevel.INFO;
+      }
     }
 
     // Check if running in GitHub Actions
@@ -100,13 +106,20 @@ export class Logger {
    */
   public setLogLevel(level: LogLevel | string): void {
     if (typeof level === 'string') {
-      this.logLevel = parseLogLevel(level);
+      try {
+        this.logLevel = parseLogLevel(level);
+      } catch (error) {
+        console.error(`Error parsing log level: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Keep current log level if parsing fails
+      }
     } else {
       this.logLevel = level;
     }
     
     // Update winston logger level
-    this.winstonLogger.level = toWinstonLogLevel(this.logLevel);
+    if (this.winstonLogger) {
+      this.winstonLogger.level = toWinstonLogLevel(this.logLevel);
+    }
   }
 
   /**
