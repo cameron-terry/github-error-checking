@@ -7,6 +7,7 @@ import { LLMService, LLMAnalysisResult } from './llm-service';
 import { logger, LogLevel } from './logger';
 import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
 import { validateAllInputs, validateRequiredInput } from './validate-inputs';
+import { Octokit } from '@octokit/rest';
 
 async function run(): Promise<void> {
   try {
@@ -108,7 +109,7 @@ async function run(): Promise<void> {
         // If we're running in GitHub Actions, we need to handle rate limiting and retries
         logger.info('Fetching PR diff from GitHub API...');
         try {
-          diff = await getPullRequestDiff(octokit, repo, pullNumber);
+          diff = await getPullRequestDiff(octokit as unknown as Octokit, repo, pullNumber);
           logger.info('Successfully fetched PR diff');
         } catch (error) {
           if (error instanceof Error) {

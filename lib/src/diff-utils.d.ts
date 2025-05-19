@@ -1,3 +1,4 @@
+import { Octokit } from '@octokit/rest';
 /**
  * Repository information
  */
@@ -28,7 +29,7 @@ export interface AddedCodeSection {
  * @param {number} pullNumber - Pull request number
  * @returns {Promise<string>} PR diff as a string
  */
-export declare function getPullRequestDiff(octokit: any, repo: RepoInfo, pullNumber: number): Promise<string>;
+export declare function getPullRequestDiff(octokit: Octokit, repo: RepoInfo, pullNumber: number): Promise<string>;
 /**
  * Parses a diff string to extract added lines of code
  * @param {string} diff - Pull request diff as a string

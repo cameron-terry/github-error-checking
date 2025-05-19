@@ -16,6 +16,7 @@ exports.parseAddedLines = parseAddedLines;
  * Utilities for processing GitHub pull request diffs
  */
 const parse_diff_1 = __importDefault(__nccwpck_require__(4833));
+const logger_1 = __nccwpck_require__(6297);
 /**
  * Fetches the diff for a pull request
  * @param {Octokit} octokit - Octokit instance
@@ -28,6 +29,7 @@ async function getPullRequestDiff(octokit, repo, pullNumber) {
     try {
         // First, try with v5 API format (using pulls.get)
         if (octokit.pulls && typeof octokit.pulls.get === 'function') {
+            logger_1.logger.debug('Attempting to use octokit.pulls.get API');
             try {
                 const response = await octokit.pulls.get({
                     owner: repo.owner,
@@ -37,15 +39,18 @@ async function getPullRequestDiff(octokit, repo, pullNumber) {
                         format: 'diff'
                     }
                 });
+                logger_1.logger.info('Successfully used octokit.pulls.get API');
                 // When requesting a diff, the response data is a string
                 return response.data;
             }
             catch (apiErr) {
+                logger_1.logger.debug(`Failed to use octokit.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
                 throw new Error(`Failed to fetch PR diff using pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
             }
         }
         // Try with rest.pulls for newer API version
         else if (octokit.rest && octokit.rest.pulls && typeof octokit.rest.pulls.get === 'function') {
+            logger_1.logger.debug('Attempting to use octokit.rest.pulls.get API');
             try {
                 const response = await octokit.rest.pulls.get({
                     owner: repo.owner,
@@ -55,14 +60,17 @@ async function getPullRequestDiff(octokit, repo, pullNumber) {
                         format: 'diff'
                     }
                 });
+                logger_1.logger.info('Successfully used octokit.rest.pulls.get API');
                 return response.data;
             }
             catch (apiErr) {
+                logger_1.logger.debug(`Failed to use octokit.rest.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
                 throw new Error(`Failed to fetch PR diff using rest.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
             }
         }
         // Fallback to fetching raw diff URL
         else {
+            logger_1.logger.debug('Falling back to fetching raw diff URL');
             try {
                 // Get PR info first
                 const prResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
@@ -71,10 +79,12 @@ async function getPullRequestDiff(octokit, repo, pullNumber) {
                     pull_number: pullNumber
                 });
                 if (!((_a = prResponse === null || prResponse === void 0 ? void 0 : prResponse.data) === null || _a === void 0 ? void 0 : _a.diff_url)) {
+                    logger_1.logger.warning('PR response missing diff URL');
                     throw new Error('PR response missing diff URL');
                 }
                 // Then fetch the diff URL
                 const diffUrl = prResponse.data.diff_url;
+                logger_1.logger.debug(`Fetching diff from URL: ${diffUrl}`);
                 try {
                     const diffResponse = await octokit.request('GET {url}', {
                         url: diffUrl,
@@ -83,15 +93,19 @@ async function getPullRequestDiff(octokit, repo, pullNumber) {
                         }
                     });
                     if (!(diffResponse === null || diffResponse === void 0 ? void 0 : diffResponse.data)) {
+                        logger_1.logger.warning('Diff response missing data');
                         throw new Error('Diff response missing data');
                     }
+                    logger_1.logger.info('Successfully used raw diff URL API');
                     return diffResponse.data;
                 }
                 catch (diffErr) {
+                    logger_1.logger.debug(`Failed to fetch diff from URL ${diffUrl}: ${diffErr instanceof Error ? diffErr.message : 'Unknown error'}`);
                     throw new Error(`Failed to fetch diff from URL ${diffUrl}: ${diffErr instanceof Error ? diffErr.message : 'Unknown error'}`);
                 }
             }
             catch (prErr) {
+                logger_1.logger.debug(`Failed to fetch PR information: ${prErr instanceof Error ? prErr.message : 'Unknown error'}`);
                 throw new Error(`Failed to fetch PR information: ${prErr instanceof Error ? prErr.message : 'Unknown error'}`);
             }
         }
@@ -14892,7 +14906,7 @@ exposeFormat('padLevels', function () { return __nccwpck_require__(7033); });
 exposeFormat('prettyPrint', function () { return __nccwpck_require__(6182); });
 exposeFormat('printf', function () { return __nccwpck_require__(1843); });
 exposeFormat('simple', function () { return __nccwpck_require__(5313); });
-exposeFormat('splat', function () { return __nccwpck_require__(3133); });
+exposeFormat('splat', function () { return __nccwpck_require__(7081); });
 exposeFormat('timestamp', function () { return __nccwpck_require__(8381); });
 exposeFormat('uncolorize', function () { return __nccwpck_require__(6420); });
 
@@ -15319,7 +15333,7 @@ module.exports = format(info => {
 
 /***/ }),
 
-/***/ 3133:
+/***/ 7081:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
@@ -60514,8 +60528,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Checkpoints = void 0;
 const resource_1 = __nccwpck_require__(9593);
-const PermissionsAPI = __importStar(__nccwpck_require__(7081));
-const permissions_1 = __nccwpck_require__(7081);
+const PermissionsAPI = __importStar(__nccwpck_require__(4645));
+const permissions_1 = __nccwpck_require__(4645);
 class Checkpoints extends resource_1.APIResource {
     constructor() {
         super(...arguments);
@@ -60529,7 +60543,7 @@ Checkpoints.PermissionCreateResponsesPage = permissions_1.PermissionCreateRespon
 
 /***/ }),
 
-/***/ 7081:
+/***/ 4645:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";

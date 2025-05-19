@@ -3,6 +3,7 @@
  */
 import parseDiff from 'parse-diff';
 import { Octokit } from '@octokit/rest';
+import { logger } from './logger';
 
 /**
  * Repository information
@@ -63,13 +64,14 @@ interface Change {
  * @returns {Promise<string>} PR diff as a string
  */
 export async function getPullRequestDiff(
-  octokit: any, 
+  octokit: Octokit, 
   repo: RepoInfo, 
   pullNumber: number
 ): Promise<string> {
   try {
     // First, try with v5 API format (using pulls.get)
     if (octokit.pulls && typeof octokit.pulls.get === 'function') {
+      logger.debug('Attempting to use octokit.pulls.get API');
       try {
         const response = await octokit.pulls.get({
           owner: repo.owner,
@@ -80,14 +82,17 @@ export async function getPullRequestDiff(
           }
         });
         
+        logger.info('Successfully used octokit.pulls.get API');
         // When requesting a diff, the response data is a string
         return response.data as unknown as string;
       } catch (apiErr) {
+        logger.debug(`Failed to use octokit.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
         throw new Error(`Failed to fetch PR diff using pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
       }
     } 
     // Try with rest.pulls for newer API version
     else if (octokit.rest && octokit.rest.pulls && typeof octokit.rest.pulls.get === 'function') {
+      logger.debug('Attempting to use octokit.rest.pulls.get API');
       try {
         const response = await octokit.rest.pulls.get({
           owner: repo.owner,
@@ -98,13 +103,16 @@ export async function getPullRequestDiff(
           }
         });
         
+        logger.info('Successfully used octokit.rest.pulls.get API');
         return response.data as unknown as string;
       } catch (apiErr) {
+        logger.debug(`Failed to use octokit.rest.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
         throw new Error(`Failed to fetch PR diff using rest.pulls.get API: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
       }
     } 
     // Fallback to fetching raw diff URL
     else {
+      logger.debug('Falling back to fetching raw diff URL');
       try {
         // Get PR info first
         const prResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
@@ -114,11 +122,13 @@ export async function getPullRequestDiff(
         });
         
         if (!prResponse?.data?.diff_url) {
+          logger.warning('PR response missing diff URL');
           throw new Error('PR response missing diff URL');
         }
         
         // Then fetch the diff URL
         const diffUrl = prResponse.data.diff_url;
+        logger.debug(`Fetching diff from URL: ${diffUrl}`);
         try {
           const diffResponse = await octokit.request('GET {url}', {
             url: diffUrl,
@@ -128,14 +138,18 @@ export async function getPullRequestDiff(
           });
           
           if (!diffResponse?.data) {
+            logger.warning('Diff response missing data');
             throw new Error('Diff response missing data');
           }
           
+          logger.info('Successfully used raw diff URL API');
           return diffResponse.data as unknown as string;
         } catch (diffErr) {
+          logger.debug(`Failed to fetch diff from URL ${diffUrl}: ${diffErr instanceof Error ? diffErr.message : 'Unknown error'}`);
           throw new Error(`Failed to fetch diff from URL ${diffUrl}: ${diffErr instanceof Error ? diffErr.message : 'Unknown error'}`);
         }
       } catch (prErr) {
+        logger.debug(`Failed to fetch PR information: ${prErr instanceof Error ? prErr.message : 'Unknown error'}`);
         throw new Error(`Failed to fetch PR information: ${prErr instanceof Error ? prErr.message : 'Unknown error'}`);
       }
     }
