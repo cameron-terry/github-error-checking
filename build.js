@@ -6,26 +6,41 @@ const path = require('path');
 const libDir = path.join(__dirname, 'lib');
 const distDir = path.join(__dirname, 'dist');
 
-if (!fs.existsSync(libDir)) {
-  fs.mkdirSync(libDir);
-}
-
-if (!fs.existsSync(distDir)) {
-  fs.mkdirSync(distDir);
-}
-
-// Run the build
-console.log('Building TypeScript code...');
 try {
-  execSync('npx tsc', { stdio: 'inherit' });
-  console.log('TypeScript compilation completed successfully!');
-  
-  console.log('Building for production with ncc...');
-  execSync('npx @vercel/ncc build lib/index.js -o dist', { stdio: 'inherit' });
-  console.log('ncc build completed successfully!');
+  if (!fs.existsSync(libDir)) {
+    try {
+      fs.mkdirSync(libDir);
+    } catch (dirErr) {
+      console.error(`Failed to create lib directory: ${dirErr.message}`);
+      process.exit(1);
+    }
+  }
 
-  console.log('Build completed successfully!');
+  if (!fs.existsSync(distDir)) {
+    try {
+      fs.mkdirSync(distDir);
+    } catch (dirErr) {
+      console.error(`Failed to create dist directory: ${dirErr.message}`);
+      process.exit(1);
+    }
+  }
+
+  // Run the build
+  console.log('Building TypeScript code...');
+  try {
+    execSync('npx tsc', { stdio: 'inherit' });
+    console.log('TypeScript compilation completed successfully!');
+    
+    console.log('Building for production with ncc...');
+    execSync('npx @vercel/ncc build lib/src/index.js -o dist', { stdio: 'inherit' });
+    console.log('ncc build completed successfully!');
+
+    console.log('Build completed successfully!');
+  } catch (buildErr) {
+    console.error('Build command failed:', buildErr.message);
+    process.exit(1);
+  }
 } catch (error) {
-  console.error('Build failed:', error);
+  console.error('Build process failed:', error.message);
   process.exit(1);
 } 

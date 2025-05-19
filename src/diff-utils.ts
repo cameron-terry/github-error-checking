@@ -3,6 +3,7 @@
  */
 import parseDiff from 'parse-diff';
 import { Octokit } from '@octokit/rest';
+import { logger } from './logger';
 
 /**
  * Repository information
@@ -11,6 +12,27 @@ export interface RepoInfo {
   owner: string;
   repo: string;
 }
+
+/**
+ * Type for Octokit instance from @actions/github
+ */
+export type ActionsOctokit = Octokit & {
+  rest: {
+    pulls: {
+      get: (params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        mediaType: {
+          format: string;
+        };
+      }) => Promise<{
+        data: unknown;
+      }>;
+    };
+    [key: string]: any;
+  };
+};
 
 /**
  * Context information for added code
@@ -57,27 +79,43 @@ interface Change {
 
 /**
  * Fetches the diff for a pull request
- * @param {Octokit} octokit - Octokit instance
+ * @param {ActionsOctokit} octokit - Octokit instance
  * @param {RepoInfo} repo - Repository information {owner, repo}
  * @param {number} pullNumber - Pull request number
  * @returns {Promise<string>} PR diff as a string
  */
 export async function getPullRequestDiff(
-  octokit: any, 
+  octokit: ActionsOctokit, 
   repo: RepoInfo, 
   pullNumber: number
 ): Promise<string> {
-  const response = await octokit.pulls.get({
-    owner: repo.owner,
-    repo: repo.repo,
-    pull_number: pullNumber,
-    mediaType: {
-      format: 'diff'
+  try {
+    logger.debug('Fetching PR diff using octokit.rest.pulls.get API');
+    
+    // Use the rest.pulls API that we know works in GitHub Actions
+    try {
+      const response = await octokit.rest.pulls.get({
+        owner: repo.owner,
+        repo: repo.repo,
+        pull_number: pullNumber,
+        mediaType: {
+          format: 'diff'
+        }
+      });
+      
+      logger.info('Successfully fetched PR diff');
+      return response.data as unknown as string;
+    } catch (apiErr) {
+      logger.warning(`API error: ${apiErr instanceof Error ? apiErr.message : 'Unknown error'}`);
+      throw apiErr; // Rethrow the original error to maintain error context
     }
-  });
-  
-  // When requesting a diff, the response data is a string
-  return response.data as unknown as string;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch PR diff: ${error.message}`);
+    } else {
+      throw new Error('Failed to fetch PR diff: Unknown error');
+    }
+  }
 }
 
 /**

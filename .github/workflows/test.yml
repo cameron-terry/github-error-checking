@@ -8,10 +8,10 @@ jobs:
   check-error-handling:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '16'
           cache: 'npm'
@@ -28,8 +28,44 @@ jobs:
       - name: Build
         run: npm run build
       
-      - name: Check for error handling
-        run: node lib/index.js samples/axios.diff
+      # - name: Check sample with LLM integration
+      #   env:
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #     LLM_MODEL: 'gpt-3.5-turbo'
+      #   run: node lib/src/index.js samples/user-order-services.diff
+      
+      - name: Verify dist build works with LLM
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_MODEL: 'gpt-3.5-turbo'
+        run: node dist/index.js samples/axios.diff
+      
+      - name: Test GitHub Action
+        uses: ./
+        id: action-test
+        with:
+          github-token: ${{ github.token }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          llm-model: 'gpt-4'
+          ignore-patterns: '.diff,.yml,.js'
       
       - name: Log results
-        run: echo "Analysis complete. See logs above for details." 
+        run: |
+          echo "Analysis complete. See logs above for details."
+          echo "Added code sections: ${{ steps.action-test.outputs.added-code }}"
+          echo "Error score: ${{ steps.action-test.outputs.error-score }}"
+          echo 'Analysis results saved to file'
+      
+      - name: Write analysis results to file
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const results = ${{ toJSON(steps.action-test.outputs.analysis-results) }};
+            fs.writeFileSync('analysis-results.json', results);
+          
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-results
+          path: analysis-results.json

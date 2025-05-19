@@ -98,7 +98,7 @@ index defabc..987654 100644
 +  const order = {
 +    items: orderData.items,
 +    userId: orderData.userId,
-+    total: calculateTotal(orderData.items), // No validation if items exist
++    total: calculateTotal(orderData.items),
 +    shippingAddress,
 +    paymentId: paymentResult.id,
 +    status: 'pending'

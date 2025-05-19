@@ -1,4 +1,4 @@
-name: 'GitHub Error Checking'
+name: 'GitHub Diff Error Checking'
 description: 'Analyzes pull requests for proper error handling in added code'
 author: 'cameronterry'
 
@@ -11,14 +11,37 @@ inputs:
     description: 'Types of error handling to check for (comma-separated)'
     required: false
     default: 'exceptions,null-checks,undefined-checks'
+  openai-api-key:
+    description: 'OpenAI API key for code analysis. Must be stored in GitHub Secrets.'
+    required: true
+  llm-model:
+    description: 'LLM model to use for analysis (e.g., gpt-4, gpt-3.5-turbo)'
+    required: false
+    default: 'gpt-3.5-turbo'
+  log-level:
+    description: 'Logging level (debug, info, warning, error, none)'
+    required: false
+    default: 'info'
+  enable-file-filtering:
+    description: 'Enable filtering out common generated/config files from analysis'
+    required: false
+    default: 'true'
+  ignore-patterns:
+    description: 'Additional file patterns to ignore (comma-separated)'
+    required: false
+    default: ''
 
 outputs:
   added-code:
     description: 'Number of code sections found for analysis'
+  analysis-results:
+    description: 'JSON string containing analysis results with issues and suggestions'
+  error-score:
+    description: 'Average score (0-10) for error handling quality across all sections'
 
 runs:
   using: 'node16'
-  main: 'lib/index.js'
+  main: 'dist/index.js'
 
 branding:
   icon: 'shield'

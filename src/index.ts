@@ -2,93 +2,280 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getPullRequestDiff, parseAddedLines } from './diff-utils';
+import { getPullRequestDiff, parseAddedLines, ActionsOctokit } from './diff-utils';
+import { LLMService, LLMAnalysisResult } from './llm-service';
+import { logger, LogLevel } from './logger';
+import { shouldIgnoreFile, isFileFilteringEnabled } from './file-filters';
+import { validateAllInputs, validateRequiredInput } from './validate-inputs';
 
 async function run(): Promise<void> {
   try {
-    let diff: string;
+    // Set logging level from input or default to INFO
+    const logLevelInput = core.getInput('log-level', { required: false }) || 'info';
+    const envLogLevel = process.env.LOG_LEVEL;
+    
+    // Environment variable takes precedence over input
+    if (!envLogLevel) {
+      logger.setLogLevel(logLevelInput);
+    }
+    
+    logger.debug(`Log level: ${logger.getLogLevel()}`);
     
     // Check if a file path is provided as a command-line argument
     const diffPath = process.argv[2];
     
+    // If not in local file mode, validate all action inputs
+    if (!diffPath) {
+      logger.debug('Validating action inputs...');
+      if (!validateAllInputs()) {
+        logger.warning('Some inputs failed validation. Attempting to continue with default values.');
+      }
+    } else {
+      // In local file mode, we only need to ensure the OpenAI API key is present
+      // if we want to use LLM analysis
+      if (process.env.OPENAI_API_KEY) {
+        logger.debug('OpenAI API key found in environment.');
+      } else {
+        logger.warning('No OpenAI API key found in environment. LLM analysis will be skipped.');
+      }
+    }
+    
+    let diff: string;
+    
     if (diffPath) {
       // Local mode: Read diff from file
-      console.log(`Reading diff from file: ${diffPath}`);
+      logger.info(`Reading diff from file: ${diffPath}`);
       diff = fs.readFileSync(path.resolve(diffPath), 'utf8');
     } else {
       // GitHub Actions mode
-      console.log('Running in GitHub Actions mode');
-      const token = core.getInput('github-token', { required: true });
+      let token = '';
+      
+      try {
+        // Try to get token from env or input
+        token = process.env.GITHUB_TOKEN || // Direct env var
+               process.env.INPUT_GITHUB_TOKEN || // GitHub Actions env convention
+               core.getInput('github-token', { required: false }); // GitHub Actions getInput
+      } catch (error) {
+        logger.warning('Failed to get github-token from inputs, using mock token for testing');
+      }
+      
+      // If no token is available, use a mock token for testing
+      if (!token) {
+        token = 'mock-token-for-testing';
+        logger.warning('Using mock token for testing. This will limit functionality.');
+      }
+      
       const context = github.context;
       
-      if (context.eventName !== 'pull_request') {
-        core.info('This action only works on pull requests');
+      if (context.eventName === 'pull_request') {
+        // This is a real PR, get the pull number
+        const pullNumber = context.payload.pull_request?.number;
+        if (!pullNumber) {
+          core.setFailed('Could not get pull request number from context');
+          return;
+        }
+        
+        const repo = context.repo;
+        logger.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
+        
+        const octokit = github.getOctokit(token);
+        
+        try {
+          diff = await getPullRequestDiff(octokit as unknown as ActionsOctokit, repo, pullNumber);
+        } catch (error) {
+          if (error instanceof Error) {
+            core.setFailed(`Failed to fetch PR diff: ${error.message}`);
+          } else {
+            core.setFailed('Failed to fetch PR diff: Unknown error');
+          }
+          return;
+        }
+      } else {
+        logger.info('Not a pull request -- exiting');
         return;
       }
-      
-      const pullNumber = context.payload.pull_request?.number;
-      if (!pullNumber) {
-        core.setFailed('Could not get pull request number from context');
-        return;
-      }
-      
-      const repo = context.repo;
-      core.info(`Analyzing pull request #${pullNumber} in ${repo.owner}/${repo.repo}`);
-      
-      const octokit = github.getOctokit(token);
-      diff = await getPullRequestDiff(octokit, repo, pullNumber);
     }
     
     // Parse the diff to find added code
     const addedCode = parseAddedLines(diff);
     
     // Output the results
-    console.log(`\nFound ${addedCode.length} sections of added code\n`);
+    logger.info(`Found ${addedCode.length} sections of added code`);
+    
+    // Check if file filtering is enabled
+    if (isFileFilteringEnabled()) {
+      // Count the number of sections that would be ignored based on file type
+      const ignoredSections = addedCode.filter(section => shouldIgnoreFile(section.file));
+      if (ignoredSections.length > 0) {
+        logger.info(`${ignoredSections.length} sections are from file types that will be ignored during analysis`);
+        logger.debug('Ignored files:');
+        new Set(ignoredSections.map(section => section.file)).forEach(file => 
+          logger.debug(`  - ${file}`)
+        );
+      }
+    } else {
+      logger.info('File type filtering is disabled. All files will be analyzed.');
+    }
     
     // Set output if running in GitHub Actions
     if (!diffPath) {
       core.setOutput('added-code', addedCode.length.toString());
     }
     
-    // Display each section
-    addedCode.forEach((section, index) => {
-      console.log(`Section ${index + 1}:`);
-      console.log(`File: ${section.file}`);
-      console.log(`Added Lines: ${section.addedLines.length}`);
+    // Initialize LLM service for code analysis
+    const apiKey = process.env.OPENAI_API_KEY || core.getInput('openai-api-key', { required: !diffPath });
+    const modelName = process.env.LLM_MODEL || core.getInput('llm-model') || 'gpt-4';
+    
+    let llmService: LLMService | null = null;
+    
+    // Validate inputs before initializing LLM service
+    if (!apiKey) {
+      logger.warning('No OpenAI API key provided. LLM analysis will be skipped.');
+    } else if (!modelName) {
+      logger.warning('No model name provided. Using default model gpt-4.');
+    }
+    
+    try {
+      if (apiKey) {
+        try {
+          llmService = new LLMService(apiKey, modelName);
+        } catch (llmErr) {
+          logger.warning(`Failed to initialize LLM service: ${llmErr instanceof Error ? llmErr.message : 'Unknown error'}`);
+        }
+      }
+    } catch (error) {
+      logger.warning(`Error during LLM setup: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    
+    // Array to store analysis results
+    const analysisResults: LLMAnalysisResult[] = [];
+    let totalScore = 0;
+    
+    // Display each section found
+    for (let index = 0; index < addedCode.length; index++) {
+      const section = addedCode[index];
+      logger.debug(`Section ${index + 1}:`);
+      logger.debug(`File: ${section.file}`);
+      logger.debug(`Added Lines: ${section.addedLines.length}`);
       
       if (section.isModification) {
-        console.log(`Type: Modification to existing code`);
+        logger.debug(`Type: Modification to existing code`);
       } else {
-        console.log(`Type: New code block`);
+        logger.debug(`Type: New code block`);
       }
       
-      console.log('Context Before:');
+      logger.debug('Context Before:');
       if (section.context.linesBefore.length === 0) {
-        console.log('  (none)');
+        logger.debug('  (none)');
       } else {
-        section.context.linesBefore.forEach(line => console.log(`  ${line}`));
+        section.context.linesBefore.forEach(line => logger.debug(`  ${line}`));
       }
       
-      console.log('Added Code:');
-      section.addedLines.forEach(line => console.log(`+ ${line}`));
+      logger.debug('Added Code:');
+      section.addedLines.forEach(line => logger.debug(`+ ${line}`));
       
-      console.log('Context After:');
+      logger.debug('Context After:');
       if (section.context.linesAfter.length === 0) {
-        console.log('  (none)');
+        logger.debug('  (none)');
       } else {
-        section.context.linesAfter.forEach(line => console.log(`  ${line}`));
+        section.context.linesAfter.forEach(line => logger.debug(`  ${line}`));
       }
-      
-      console.log('\n');
-    });
+    }
     
-    console.log('Next step: Analyze with LLM and provide suggestions for error handling');
+    // Analyze using LLM if service is available
+    if (llmService) {
+      logger.info('Analyzing code with LLM by file...');
+      try {
+        // Use the new file-based analysis approach
+        let fileResults;
+        try {
+          fileResults = await llmService.analyzeByFile(addedCode);
+        } catch (analysisError) {
+          logger.error(`Error during LLM analysis: ${analysisError instanceof Error ? analysisError.message : 'Unknown error'}`);
+          return;
+        }
+        
+        // Process and display each file's results
+        for (const result of fileResults) {
+          // Only process results with non-zero scores or issues
+          if (result.score > 0 || result.issues.length > 0) {
+            analysisResults.push(result);
+            totalScore += result.score;
+            
+            logger.info(`\nAnalysis Results for ${result.file} (Error Handling Quality Score: ${result.score}/10):`);
+            
+            if (result.issues.length === 0) {
+              logger.info('No error handling issues found.');
+            } else {
+              logger.info(`Found ${result.issues.length} potential issues:`);
+              
+              result.issues.forEach((issue, i) => {
+                logger.info(`\nIssue ${i + 1}:`);
+                logger.info(`Severity: ${issue.severity}`);
+                logger.info(`Description: ${issue.description}`);
+                logger.info(`Suggestion: ${issue.suggestion}`);
+                if (issue.lineNumber) {
+                  logger.info(`Line: ~${issue.lineNumber}`);
+                }
+              });
+            }
+          } else {
+            logger.info(`Skipping result for ${result.file} with no issues and score of 0`);
+          }
+        }
+        
+      } catch (error) {
+        logger.warning(`Error performing LLM analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        logger.debug(`Analysis error details: ${JSON.stringify(error)}`);
+      }
+    } else {
+      logger.info('LLM analysis not available. Skipping code analysis.');
+    }
+    
+    // Set outputs for GitHub Actions
+    if (!diffPath && llmService && analysisResults.length > 0) {
+      // Enhance analysis results with the corresponding diff sections
+      const enhancedResults = analysisResults.map(result => {
+        // Find all sections for this file
+        const fileSections = addedCode.filter(section => section.file === result.file);
+        
+        return {
+          ...result,
+          diff_sections: fileSections.map(section => {
+            // Limit the size of each section to avoid issues with large outputs
+            const maxLines = 20; // Maximum lines to include in each section
+            const truncateArray = (arr: string[], max: number) => {
+              if (arr.length <= max) return arr;
+              // Return first and last lines with indication of truncation
+              const firstPart = arr.slice(0, Math.floor(max/2));
+              const lastPart = arr.slice(arr.length - Math.floor(max/2));
+              return [...firstPart, `... (${arr.length - max} more lines) ...`, ...lastPart];
+            };
+            
+            return {
+              added_lines: truncateArray(section.addedLines, maxLines),
+              is_modification: section.isModification || false,
+              context_before: truncateArray(section.context.linesBefore, 5),
+              context_after: truncateArray(section.context.linesAfter, 5)
+            };
+          })
+        };
+      });
+      
+      const averageScore = totalScore / analysisResults.length;
+      core.setOutput('analysis-results', JSON.stringify(enhancedResults));
+      core.setOutput('error-score', averageScore.toFixed(2));
+      
+      logger.info(`Overall error handling score: ${averageScore.toFixed(2)}/10`);
+    }
     
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(`Action failed with error: ${error.message}`);
+      logger.error(`Action failed with error: ${error.message}`);
     } else {
       core.setFailed(`Action failed with unknown error`);
+      logger.error(`Action failed with unknown error`);
     }
   }
 }

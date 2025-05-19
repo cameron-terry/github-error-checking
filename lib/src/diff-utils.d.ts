@@ -1,3 +1,4 @@
+import { Octokit } from '@octokit/rest';
 /**
  * Repository information
  */
@@ -5,6 +6,26 @@ export interface RepoInfo {
     owner: string;
     repo: string;
 }
+/**
+ * Type for Octokit instance from @actions/github
+ */
+export type ActionsOctokit = Octokit & {
+    rest: {
+        pulls: {
+            get: (params: {
+                owner: string;
+                repo: string;
+                pull_number: number;
+                mediaType: {
+                    format: string;
+                };
+            }) => Promise<{
+                data: unknown;
+            }>;
+        };
+        [key: string]: any;
+    };
+};
 /**
  * Context information for added code
  */
@@ -23,12 +44,12 @@ export interface AddedCodeSection {
 }
 /**
  * Fetches the diff for a pull request
- * @param {Octokit} octokit - Octokit instance
+ * @param {ActionsOctokit} octokit - Octokit instance
  * @param {RepoInfo} repo - Repository information {owner, repo}
  * @param {number} pullNumber - Pull request number
  * @returns {Promise<string>} PR diff as a string
  */
-export declare function getPullRequestDiff(octokit: any, repo: RepoInfo, pullNumber: number): Promise<string>;
+export declare function getPullRequestDiff(octokit: ActionsOctokit, repo: RepoInfo, pullNumber: number): Promise<string>;
 /**
  * Parses a diff string to extract added lines of code
  * @param {string} diff - Pull request diff as a string
