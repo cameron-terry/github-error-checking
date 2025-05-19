@@ -46,6 +46,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          llm-model: 'gpt-4'
           ignore-patterns: '.diff,.yml,.js'
       
       - name: Log results
@@ -54,7 +55,14 @@ jobs:
           echo "Added code sections: ${{ steps.action-test.outputs.added-code }}"
           echo "Error score: ${{ steps.action-test.outputs.error-score }}"
           echo 'Analysis results saved to file'
-          echo '${{ steps.action-test.outputs.analysis-results }}' > analysis-results.json
+      
+      - name: Write analysis results to file
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const results = ${{ toJSON(steps.action-test.outputs.analysis-results) }};
+            fs.writeFileSync('analysis-results.json', results);
           
       - name: Upload analysis results
         uses: actions/upload-artifact@v4

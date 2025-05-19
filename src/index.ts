@@ -241,12 +241,24 @@ async function run(): Promise<void> {
         
         return {
           ...result,
-          diff_sections: fileSections.map(section => ({
-            added_lines: section.addedLines,
-            is_modification: section.isModification || false,
-            context_before: section.context.linesBefore,
-            context_after: section.context.linesAfter
-          }))
+          diff_sections: fileSections.map(section => {
+            // Limit the size of each section to avoid issues with large outputs
+            const maxLines = 20; // Maximum lines to include in each section
+            const truncateArray = (arr: string[], max: number) => {
+              if (arr.length <= max) return arr;
+              // Return first and last lines with indication of truncation
+              const firstPart = arr.slice(0, Math.floor(max/2));
+              const lastPart = arr.slice(arr.length - Math.floor(max/2));
+              return [...firstPart, `... (${arr.length - max} more lines) ...`, ...lastPart];
+            };
+            
+            return {
+              added_lines: truncateArray(section.addedLines, maxLines),
+              is_modification: section.isModification || false,
+              context_before: truncateArray(section.context.linesBefore, 5),
+              context_after: truncateArray(section.context.linesAfter, 5)
+            };
+          })
         };
       });
       
